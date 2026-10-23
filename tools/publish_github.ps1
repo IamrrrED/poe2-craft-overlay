@@ -33,6 +33,8 @@ $includeDirs = @(
 # Single files that matter at the repository root.
 $includeFiles = @(
     "README.md",
+    "LICENSE",
+    "NOTICE.md",
     ".gitignore",
     "tests.ps1"
 )
