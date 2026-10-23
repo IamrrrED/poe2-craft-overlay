@@ -101,6 +101,10 @@ docs/                отчёты, консенсус по правилам, с�
 - C7 (сочетание «великого» и «единого» возвышения) невозможно проверить в лиге, потому что второго омена там
   нет; правило остаётся открытым и в совет не входит.
 
+## Лицензия
+
+Код — **MIT** ([`LICENSE`](LICENSE)). Данные в `src/Data/` — **нет**: они собраны из Path of Building (GPL-3.0), poe2db, вики и трейда, у каждого источника свои условия. Полный разбор — [`NOTICE.md`](NOTICE.md).
+
 ## Правовая оговорка
 
 Неофициальный фанатский проект. Не связан с Grinding Gear Games. Path of Exile 2 и его данные принадлежат GGG.
@@ -207,6 +211,10 @@ docs/                reports, rule consensus, screenshots
 - The price of the finished item is never invented: the panel gives a stop rule and a search link instead.
 - C7 (combining Greater and Homogenising Exaltation) cannot be tested in a league, because the second omen is
   not there; the rule stays open and is excluded from the advice.
+
+## Licence
+
+The code is **MIT** ([`LICENSE`](LICENSE)). The data in `src/Data/` is **not**: it was assembled from Path of Building (GPL-3.0), poe2db, the wiki and the trade site, each with its own terms. Full breakdown: [`NOTICE.md`](NOTICE.md).
 
 ## Legal
 
