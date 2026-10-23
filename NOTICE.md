@@ -1,3 +1,23 @@
+# Что именно лежит в ЭТОМ репозитории / What is in THIS repository
+
+В публичном репозитории — **только код и наш текст**. Ни одной таблицы третьих лиц, ни одного изображения и ни
+одного шрифта:
+
+- **нет** `src/Data/*.lua` с модами, базами, весами, ценами и русскими названиями — они собираются локально,
+  инструкция: [`docs/DATA.md`](docs/DATA.md);
+- **нет** скриншотов и картинок (на них был бы текст и графика игры);
+- **нет** игрового шрифта Fontin и картинки индикатора.
+
+Поэтому у этого репозитория нет ни обязательств GPL-3.0, ни обязательств перед poe.ninja: перепубликации их
+данных здесь не происходит. Всё, что ниже, относится к **локальной рабочей копии** проекта, которая остаётся
+такой же, как раньше.
+
+The public repository holds **code and our own text only** - no third-party table, no image, no font: the data
+tables are built locally (see [`docs/DATA.md`](docs/DATA.md)), and screenshots, the game's Fontin font and the
+indicator artwork are excluded. So this repository carries no GPL-3.0 obligation and none towards poe.ninja:
+nothing of theirs is redistributed here. Everything below describes the **local working copy**, unchanged.
+
+---
 # Сторонние данные и их условия / Third-party data and its terms
 
 MIT (см. `LICENSE`) покрывает **код и документацию этого проекта**. Таблицы в `src/Data/` — нет: они собраны из

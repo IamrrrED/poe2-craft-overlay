@@ -101,6 +101,10 @@ docs/                отчёты, консенсус по правилам, с�
 - C7 (сочетание «великого» и «единого» возвышения) невозможно проверить в лиге, потому что второго омена там
   нет; правило остаётся открытым и в совет не входит.
 
+## Данные и ресурсы не входят в репозиторий
+
+Публичный репозиторий — только код. Таблицы модов, баз, весов и цен собираются локально скриптами из `tools/`, скриншоты и шрифт игры не поставляются. Инструкция: [`docs/DATA.md`](docs/DATA.md).
+
 ## Лицензия
 
 Код — **MIT** ([`LICENSE`](LICENSE)). Данные в `src/Data/` — **нет**: они собраны из Path of Building (GPL-3.0), poe2db, вики и трейда, у каждого источника свои условия. Полный разбор — [`NOTICE.md`](NOTICE.md).
@@ -211,6 +215,10 @@ docs/                reports, rule consensus, screenshots
 - The price of the finished item is never invented: the panel gives a stop rule and a search link instead.
 - C7 (combining Greater and Homogenising Exaltation) cannot be tested in a league, because the second omen is
   not there; the rule stays open and is excluded from the advice.
+
+## Data and assets are not in the repository
+
+The public repository is code only. The modifier, base, weight and price tables are built locally by the scripts in `tools/`; screenshots and the game font are not shipped. See [`docs/DATA.md`](docs/DATA.md).
 
 ## Licence
 

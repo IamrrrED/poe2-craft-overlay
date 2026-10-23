@@ -40,11 +40,12 @@ $includeFiles = @(
 )
 
 # Extensions inside the included directories that belong in a source repository.
-$includeExtensions = @(".lua", ".cs", ".csproj", ".html", ".css", ".js", ".py", ".ps1", ".json", ".md", ".png",
-    ".ttf", ".ico", ".svg", ".sh", ".cmd", ".sln")
+# Source only: no bitmaps, no fonts. Screenshots carry game text and art, the shipped Fontin font belongs to GGG,
+# and the mushroom picture is the customer own asset rather than something the code licence can cover.
+$includeExtensions = @(".lua", ".cs", ".csproj", ".html", ".css", ".js", ".py", ".ps1", ".json", ".md", ".sh", ".cmd", ".sln")
 
 # Never copied, even inside an included directory.
-$excludePatterns = @("__pycache__", "node_modules", "\bin\", "\obj\", "\.cache", "webview2-data", "tools\cache",
+$excludePatterns = @("__pycache__", "node_modules", "\bin\", "\obj\", "\.cache", "webview2-data", "tools\cache", "src\Data\", "docs\theme-", "docs\live-", "docs\mushroom", "docs\prompt-macro", "docs\macro-",
     "mcp_serve_", "last_item.txt", "craft_memory.lua", "probe_", "test_results.txt", "all.txt")
 
 function Test-Excluded([string]$path) {
@@ -93,6 +94,17 @@ foreach ($file in Get-ChildItem (Join-Path $root "overlay") -File -Filter "*.cs*
     $largest += [pscustomobject]@{ MB = [math]::Round($file.Length / 1MB, 2); Path = $relative }
 }
 
+# The public snapshot ships no third-party tables: only the explanation of how to build them locally.
+$dataDir = Join-Path $OutDir "src\Data"
+if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir -Force | Out-Null }
+$dataNote = @"
+# Data lives outside this repository
+
+The tables this engine needs (items, modifiers, weights, prices) are derived from Path of Building (GPL-3.0),
+the game's own trade data and poe.ninja. They are NOT redistributed here - see docs/DATA.md for the scripts in
+tools/ that build them locally, and for why this is done this way.
+"@
+[System.IO.File]::WriteAllText((Join-Path $dataDir "README.md"), $dataNote, (New-Object System.Text.UTF8Encoding($false)))
 foreach ($file in $includeFiles) {
     $source = Join-Path $root $file
     if (Test-Path $source) {
