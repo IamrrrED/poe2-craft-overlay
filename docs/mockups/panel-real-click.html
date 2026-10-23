@@ -1,0 +1,1343 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Fontin; src: url('fontin-regular-webfont.ttf'); }
+:root { --text:#d6cfc0; --dim:#9a8d70; --magic:#a8a8f8; --gold:#d9c58c; --good:#8fe3a0; --bad:#ff8f7d; }
+html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#191913;
+  font-family: Fontin, Georgia, serif; color:var(--text); user-select:none; }
+.panel { box-sizing:border-box; width:100%; height:100%; padding:8px 14px 20px; overflow-y:auto; }
+.title { position:relative; display:flex; justify-content:space-between; font-size:13px; color:var(--gold);
+  /* No room reserved for a close button any more: the form's title bar carries the ordinary one. */
+  margin-bottom: 2px; }
+/* The league sits in the middle of the header: absolute across the full width, so it is centred
+   in the panel rather than pushed to the right edge by the name on the left. */
+.title #league { position:absolute; left:0; right:0; text-align:center; }
+/* The RU/EN switch sits at the right of the header and is drawn with the tabs' own look, so it reads as a
+   control and not as a label; the active half takes the same "on" style as the tabs. */
+.lang-switch { display:flex; gap:4px; align-items:center; }
+.lang-switch .tab { font-size:10px; padding:1px 5px; }
+.tabs { display:flex; gap:10px; margin:6px 0 4px; font-size:12px; }
+.tab { cursor:pointer; color:var(--dim); padding:2px 8px; border:1px solid #3a3629; border-radius:3px; }
+.tab.on { color:var(--gold); border-color:var(--gold); }
+.name { font-size:16px; color:#dcd6c8; margin:2px 0 1px; }
+.base { font-size:12px; color:#cfc9bb; }
+.prop { font-size:12px; margin:1px 0; }
+.dim { color:var(--dim); }
+.mod { font-size:12.5px; color:var(--magic); margin:2px 0; }
+.review-box { border:1px solid #3a3629; background:#1d1a12; padding:6px 10px; margin:6px 0; }
+.review { font-size:12.5px; margin:1px 0; }
+.review.ok { color:var(--good); }
+.review.warn { color:#e0b979; }
+.review.no { color:var(--bad); }
+.review.new { color:var(--gold); font-size:12.5px; margin:6px 0; }
+.rev-add { font-size:12px; color:var(--good); }
+.rev-del { font-size:12px; color:var(--bad); }
+.step { border:1px solid #5c5330; background:#221f16; padding:8px 10px; margin:8px 0 6px; }
+.step-title { font-size:16px; color:var(--gold); margin-bottom:3px; }
+.step-cost { font-size:12px; color:var(--good); margin-bottom:4px; }
+.step-why { font-size:12.5px; margin-bottom:5px; }
+.lesson { margin:4px 0 6px; font-size:12px; }
+.lesson summary { cursor:pointer; color:var(--gold); }
+.lesson-text { color:#bdb59f; padding:3px 0 0 10px; border-left:1px solid #3a3727; margin-top:3px; }
+.branch { font-size:12px; margin:2px 0; }
+.ok { color:var(--good); }
+.no { color:var(--bad); }
+.loop { font-size:12px; color:var(--gold); margin-top:6px; }
+h3 { font-size:12.5px; color:var(--gold); margin:8px 0 3px; font-weight:normal; }
+.warn { font-size:12px; margin:2px 0; color:#e0b979; }
+.guide-row { font-size:12px; margin:2px 0; }
+.empty-title { font-size:17px; color:var(--gold); margin:10px 0 8px; }
+.empty-step { font-size:13px; margin:3px 0; }
+.empty-hint { font-size:11.5px; color:var(--dim); margin-top:10px; line-height:1.5; }
+.method { display:flex; gap:8px; font-size:12px; line-height:1.5; }
+.method span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.method span:first-child { flex:2.1; }
+.method span:nth-child(2) { flex:1.5; }
+.method.head { color:var(--gold); font-size:11px; }
+.method.head span { flex:1; }
+.method.head span:first-child { flex:2.1; }
+.method.head span:nth-child(2) { flex:1.5; }
+.methods { max-height:140px; overflow-y:auto; }
+/* Where a chance comes from matters more than the chance itself: Craft of Exile weights are
+   measured on this very base, the Path of Building fallback is an estimate. */
+/* flex:0 0 auto keeps the badge at its own width: the columns stretch, the mark must not. */
+.src { flex:0 0 auto; font-size:10px; margin-left:4px; }
+.src.exact { color:var(--good); }
+.src.estimate { color:#e0b979; }
+/* The same two colours in the legend line, where the words are text and not a badge. */
+.legend { font-size:10px; }
+.legend.exact { color:var(--good); }
+.legend.estimate { color:#e0b979; }
+.hint { position:absolute; bottom:4px; left:16px; font-size:10px; color:#6f6857; }
+/* The methods picker: the method list stays on the left so choosing never scrolls the choices away. */
+.split { display:grid; grid-template-columns:330px 1fr; gap:10px; align-items:start; }
+.split .left { border-right:1px solid #2c2a1e; padding-right:8px; }
+.mrow { display:flex; justify-content:space-between; gap:6px; padding:3px 6px;
+  border-bottom:1px solid #221f16; cursor:pointer; }
+.mrow:hover { background:#22221a; }
+.mrow.on { background:#2b2a1d; border-left:2px solid var(--gold); }
+.detail-title { color:#e7dfc8; font-size:13px; }
+.modgrid { display:grid; grid-template-columns:2.6fr .5fr .6fr .8fr; gap:6px; }
+.modgrid.head { color:#7d765f; font-size:10px; text-transform:uppercase; border-bottom:1px solid #3a3727; }
+.modgrid > div { padding:2px 0; border-bottom:1px solid #23211a; font-size:11px; }
+.actions { display:flex; gap:6px; margin-top:8px; }
+.controls { display:flex; gap:4px; align-items:center; margin:6px 0; flex-wrap:wrap; }
+.controls button.on { background:#3a3520; border-color:#8a7a3c; color:#f5eeda; }
+/* A method the player's stage says to save: dimmed and marked, never hidden. */
+.mrow.saved { opacity:.62; }
+.save-mark { font-size:10px; color:#e0b979; border:1px solid #5a4a1c; border-radius:2px;
+  padding:0 3px; margin-left:4px; }
+.mode-switch { float:right; }
+.mode-switch button { font-size:10px; padding:0 5px; margin-left:3px; }
+.mode-switch button.on { background:#3a3520; border-color:#8a7a3c; color:#f5eeda; }
+.more { margin-top:10px; border-top:1px solid #33301f; padding-top:6px; }
+.more summary { cursor:pointer; color:var(--gold); font-size:12px; }
+.howto { font-size:12px; color:#bdb59f; margin-top:10px; padding:8px 10px; border:1px solid #33301f; background:#1e1e17; line-height:1.55; }
+.howto b { color:var(--gold); font-weight:normal; }
+.stage-line { font-size:11.5px; color:#9a8d70; margin:0 0 4px; }
+.stage-line b { color:var(--gold); font-weight:normal; }
+.stage-switch { font-size:10.5px; color:#7d765f; margin:0 0 6px; }
+.stage-switch button { font-size:10.5px; padding:1px 6px; }
+.technique { margin:6px 0; border:1px solid #33301f; padding:5px 8px; background:#1e1e17; }
+.technique summary { cursor:pointer; color:var(--gold); font-size:12px; }
+.tech-step { font-size:11.5px; margin:4px 0 0 8px; color:#bdb59f; }
+.tech-step b { color:#d8c98d; font-weight:normal; }
+.league-note { font-size:10.5px; color:#c9a86a; margin-top:4px; border-left:2px solid #5a4a1c; padding-left:6px; }
+.technique.done summary { color:#8fce8f; }
+</style></head>
+<body><div class="panel">
+  <div class="title"><span id="panel-title"></span><span id="league"></span><span class="lang-switch">
+    <span class="tab" id="lang-ru" onclick="chooseLanguage('ru')">RU</span>
+    <span class="tab" id="lang-en" onclick="chooseLanguage('en')">EN</span>
+  </span></div>
+  <div class="tabs">
+    <div class="tab on" id="tab-step" onclick="showTab('step')"></div>
+    <div class="tab" id="tab-methods" onclick="showTab('methods')"></div>
+    <div class="tab" id="tab-guide" onclick="showTab('guide')"></div>
+  </div>
+  <div id="step-view"></div>
+  <div id="methods-view" style="display:none"></div>
+  <div id="guide-view" style="display:none"></div>
+  <div class="hint" id="panel-hint"></div>
+</div><script>
+// ---- chrome text -------------------------------------------------------------------------------------
+// Every word of the page's own chrome lives in this table, in both languages: the header, the tabs, the
+// empty card, the buttons, the section headings and the sentences wrapped around the engine's answers.
+// Text that arrives from the Lua engine (item names, step titles, why lines, warnings, methods, the whole
+// reference) is ALREADY localised there and is deliberately absent here: the host re-asks the engine for
+// its text rather than translating the payload on this side.
+var LANG='ru';
+var T={
+  ru:{
+    // header, tabs, footer
+    title:'PoE2 Craft — помощник',
+    tabStep:'Шаг',
+    tabMethods:'Способы',
+    tabGuide:'Справочник',
+    footHint:'Ctrl+Q захват · F7 скрыть · F9 клики · F10 выход',
+    // the empty card
+    emptyTitle:'Панель ждёт предмет',
+    emptyStep1:'1. В игре наведите курсор на предмет.',
+    emptyStep2:'2. Нажмите <b>Ctrl+Q</b> — оверлей сам скопирует предмет и покажет разбор.',
+    emptyStep3:'3. Сделайте предложенный шаг и нажмите <b>Ctrl+Q</b> снова: помощник сравнит моды до и после.',
+    emptyHint:'Панель ничего не делает сама и не мешает игре: она появляется по Ctrl+Q и прячется через 30 секунд. '
+      +'F7 — скрыть, F9 — перехват кликов, F10 — выход. Справочник по крафту — на вкладке «Справочник».',
+    // the how-to block
+    howtoTitle:'Как пользоваться',
+    howto1:'1. Наведите курсор на предмет в инвентаре и нажмите <b>Ctrl+Q</b>.<br>',
+    howto2:'2. Вкладка <b>Шаг</b> — что сделать следующим и почему. После действия снова <b>Ctrl+Q</b>, '
+      +'чтобы помощник увидел результат.<br>',
+    howto3:'3. Вкладка <b>Способы</b> — все доступные пути; выберите нужный и посмотрите его моды и цену.<br>',
+    howto4:'4. <b>Справочник</b> — правила, известные ловушки и проверка утверждений из чужих гайдов.<br>',
+    howto5:'5. Кнопка <b>Узнать цену</b> на шаге сравнивает крафт с рынком.',
+    methodsEmptyHint:'Наведите курсор на предмет и нажмите <b>Ctrl+Q</b> — появятся все способы.',
+    // engine health
+    engineErrorAnswered:'Движок ответил ошибкой: ',
+    engineErrorSilent:'Движок не ответил: ',
+    engineErrorTail:' Предмет сохранён в src\\last_item.txt — пришлите его, и ошибку можно будет починить.',
+    emptyAnswer:'пустой ответ',
+    // what changed between two captures
+    reviewNew:'Новый предмет: прошлый шаг забыт, начинаем этот крафт с начала.',
+    reviewProgress:'Прошлый шаг сработал — модов стало больше.',
+    reviewNothing:'Прошлый шаг ничего не изменил — значит, он не применился.',
+    reviewLoss:'Модов стало меньше: что-то потерялось.',
+    reviewSwap:'Один мод заменился другим, а не добавился.',
+    reviewAdded:'+ добавилось: ',
+    reviewRemoved:'− исчезло: ',
+    reviewSame:'не изменилось модов: ',
+    reviewBefore:' · было ',
+    reviewAfter:', стало ',
+    reviewPrevious:'Прошлый шаг: ',
+    // reliability marks
+    exact:'точно',
+    mixed:'смеш.',
+    estimate:'оценка',
+    exactTitle:'точные веса Craft of Exile',
+    estimateTitle:'оценка по тегам (Path of Building)',
+    stepBadgeTitle:'надёжность шанса у этого способа',
+    // methods and chances, next to the step
+    stepMethodsHead:'СПОСОБЫ И ШАНСЫ',
+    appliesPrefix:'Подходит способов: ',
+    ofWord:' из ',
+    legendExact:' — веса Craft of Exile для этой базы, ',
+    legendEstimate:' — по тегам (Path of Building).',
+    methodWord:'Способ',
+    chanceWord:'Шанс',
+    priceWord:'Цена',
+    attemptsColumn:'Попыток до 90%',
+    // the picker: list and detail
+    openPrefixes:'Свободно: префиксов ',
+    openSuffixes:', суффиксов ',
+    modsShort:' мод.',
+    noMethods:'Для этого предмета сейчас нет доступных способов.',
+    detailPick:'Выберите способ слева — справа появятся его моды, цена и кнопки.',
+    chancePrefix:'шанс ',
+    pricePrefix:'цена ',
+    toNinetyPrefix:'до 90% ',
+    attemptsSuffix:' попыток',
+    filterPlaceholder:'поиск по моду',
+    tierWord:'Тир',
+    nameWord:'Имя',
+    sortDesc:'убыв. ↓',
+    sortAsc:'возр. ↑',
+    tierAtMostPrefix:'тир ≤ ',
+    anyTier:'любой тир',
+    modWord:'Мод',
+    sourceWord:'Источник',
+    noModsForFilter:'Под этот фильтр модов нет.',
+    shownPrefix:'Показано ',
+    shownTail:' — остальные подгрузятся при прокрутке.',
+    shownAllPrefix:'Показаны все ',
+    shownAllTail:' мод. этого способа.',
+    noModPick:'Этот способ не выбирает мод: он меняет характеристики предмета.',
+    doneButton:'Выполнено',
+    failedButton:'Не получилось',
+    savedMark:'копить',
+    // advanced techniques and the mentor's course
+    techniquesHead:'ПРОДВИНУТЫЕ ТЕХНИКИ ДЛЯ ЭТОГО ПРЕДМЕТА',
+    riskPrefix:'риск: ',
+    sourcePrefix:'Источник: ',
+    curriculumHead:'КУРС НАСТАВНИКА: ',
+    curriculumTail:' уже понятно по этому предмету',
+    // the stage the player is in
+    stagePrefix:'Стадия: ',
+    stageCampaign:'кампания',
+    stageEarly:'ранний эндгейм',
+    stageEndgame:'эндгейм',
+    // reporting what happened
+    fallbackMethod:'способ',
+    confirmDone:'Отмечено как выполненное: ',
+    confirmDoneTail:'. Теперь нажмите Ctrl+Q на предмете — помощник сравнит моды.',
+    confirmFailed:'Отмечено как «не получилось»: ',
+    confirmFailedTail:'. Во вкладке «Способы» откройте блок отмены: там указано, чем можно освободить '
+      +'префикс или суффикс и с каким шансом. Затем Ctrl+Q на предмете.',
+    openMethodsHint:'Откройте вкладку «Способы», чтобы выбрать другой путь.',
+    // craft or buy
+    craftOrBuyHead:'СТОИТ ЛИ ЭТО КРАФТИТЬ',
+    expectedPrefix:' — ожидаемо ~',
+    expectedMiddle:' хаоса за ',
+    costFor90Prefix:', до 90 % хватает ~',
+    costFor90Tail:' хаоса',
+    noCost:'Стоимость посчитать не удалось: нет цен на нужные компоненты.',
+    unknownPrice:': цену не знаю — в снимке нет ',
+    tradeSearch:'Что искать в трейде, чтобы сравнить:',
+    itemLevelPrefix:' · уровень предмета ',
+    tierSpaced:'тир ',
+    buyPlaceholder:'цена готового в хаосе, из трейда',
+    compareButton:'Сравнить',
+    autoPriceTitle:'Спросить трейд: та же база и те же моды',
+    priceButton:'Узнать цену',
+    calculating:'Считаю…',
+    askingTrade:'Спрашиваю трейд…',
+    nothingToCompare:'Сравнить не с чем: стоимость крафта для этого предмета неизвестна.',
+    // the step card
+    noStep:'Шаг не определён',
+    lessonTitle:'Что за этим стоит',
+    ifSuccess:'Если получилось: ',
+    ifFail:'Если не то: ',
+    afterStep:'После шага: скопируйте предмет снова (Ctrl+C) и нажмите Ctrl+Q.',
+    stateTakenHead:'ЧТО УЖЕ ЗАНЯТО',
+    openSlotsPrefix:'Свободно слотов: ',
+    openSlotsTail:' (какой из них префикс, а какой суффикс, по этому тексту не определить)',
+    craftedSlot:'Созданный слот: ',
+    taken:'занят',
+    open:'свободен',
+    desecratedSlot:'  ·  Осквернённый слот: ',
+    modifiablePrefix:'Мод можно менять: ',
+    modifiableNo:'НЕТ — предмет закрыт',
+    yes:'да',
+    corruptedLine:'ПРЕДМЕТ ОСКВЕРНЁН — изменения невозможны',
+    warningsHead:'НА ЧТО НЕ НАСТУПАТЬ',
+    itemHead:'ПРЕДМЕТ',
+    corruptedFlag:'Осквернено',
+    sanctifiedFlag:'Освящено — крафт недоступен',
+    // beginner mode
+    beginnerButton:'Новичок',
+    everythingButton:'Всё',
+    showAllPrefix:'Показать всё: ',
+    warningsShort:' предупр.',
+    hiddenTaken:'что занято',
+    hiddenItem:'предмет',
+    hiddenMethods:'способы',
+    leaguePrefix:'лига: ',
+    // the reference tab
+    bySources:' — по открытым источникам',
+    mainRuleHead:'ГЛАВНОЕ ПРАВИЛО',
+    capsHead:'ДВА ПОТОЛКА 0.5',
+    currenciesHead:'ВАЛЮТЫ: ЧТО ДЕЛАЕТ И ЧЕМ РИСКУЕШЬ',
+    whenPrefix:'Когда: ',
+    riskGuide:' Риск: ',
+    omensHead:'ОМЭНЫ: УПРАВЛЕНИЕ ВМЕСТО РУЛЕТКИ',
+    whyPrefix:'Зачем: ',
+    mistakesHead:'ОШИБКИ НОВИЧКА',
+    loopHead:'ЦИКЛ РАБОТЫ',
+    births:' рождений',
+    claimsHead:'ПРОВЕРИТЬ УТВЕРЖДЕНИЕ',
+    claimIntro:'Введите то, что прочитали в гайде или услышали в видео — помощник сверит это с правилами, '
+      +'по которым сам советует.',
+    claimPlaceholder:'например: Regal фиксирует префикс',
+    checkButton:'Проверить',
+    claimChecking:'Проверяю…',
+    knownTraps:'Известные ловушки',
+    trapsCheckedTail:' проверяются по данным движка',
+    noAnswer:'Ответа нет.',
+    nothingToCheck:'Проверить нечем: ',
+    correctPrefix:'Верно: ',
+    wrongPrefix:'Неверно: ',
+    verifiedMark:' · <b>проверено по данным движка</b>',
+    manualMark:' · записано вручную, данными не проверяется'
+  },
+  en:{
+    // header, tabs, footer
+    title:'PoE2 Craft — assistant',
+    tabStep:'Step',
+    tabMethods:'Methods',
+    tabGuide:'Reference',
+    footHint:'Ctrl+Q capture · F7 hide · F9 clicks · F10 quit',
+    // the empty card
+    emptyTitle:'The panel is waiting for an item',
+    emptyStep1:'1. In game, hover an item with the cursor.',
+    emptyStep2:'2. Press <b>Ctrl+Q</b> — the overlay copies the item itself and shows the breakdown.',
+    emptyStep3:'3. Do the suggested step and press <b>Ctrl+Q</b> again: the assistant compares the modifiers '
+      +'before and after.',
+    emptyHint:'The panel does nothing on its own and does not get in the game’s way: it appears on Ctrl+Q and '
+      +'hides after 30 seconds. F7 — hide, F9 — click capture, F10 — quit. The crafting reference is on the '
+      +'Reference tab.',
+    // the how-to block
+    howtoTitle:'How to use it',
+    howto1:'1. Hover an item in the inventory and press <b>Ctrl+Q</b>.<br>',
+    howto2:'2. The <b>Step</b> tab — what to do next and why. After the action press <b>Ctrl+Q</b> again so '
+      +'the assistant sees the result.<br>',
+    howto3:'3. The <b>Methods</b> tab — every available route; pick one and look at its modifiers and '
+      +'price.<br>',
+    howto4:'4. <b>Reference</b> — the rules, the known traps and a check of claims from other people’s '
+      +'guides.<br>',
+    howto5:'5. The <b>Check price</b> button on a step compares the craft with the market.',
+    methodsEmptyHint:'Hover an item and press <b>Ctrl+Q</b> — every method appears.',
+    // engine health
+    engineErrorAnswered:'The engine answered with an error: ',
+    engineErrorSilent:'The engine did not answer: ',
+    engineErrorTail:' The item is saved in src\\last_item.txt — send it and the error can be fixed.',
+    emptyAnswer:'empty answer',
+    // what changed between two captures
+    reviewNew:'New item: the previous step is forgotten, this craft starts from the beginning.',
+    reviewProgress:'The previous step worked — there are more modifiers now.',
+    reviewNothing:'The previous step changed nothing — so it did not apply.',
+    reviewLoss:'There are fewer modifiers: something was lost.',
+    reviewSwap:'One modifier replaced another instead of being added.',
+    reviewAdded:'+ added: ',
+    reviewRemoved:'− removed: ',
+    reviewSame:'unchanged modifiers: ',
+    reviewBefore:' · before ',
+    reviewAfter:', after ',
+    reviewPrevious:'Previous step: ',
+    // reliability marks
+    exact:'exact',
+    mixed:'mixed',
+    estimate:'estimate',
+    exactTitle:'exact Craft of Exile weights',
+    estimateTitle:'estimate by tags (Path of Building)',
+    stepBadgeTitle:'reliability of the chance for this method',
+    // methods and chances, next to the step
+    stepMethodsHead:'METHODS AND CHANCES',
+    appliesPrefix:'Methods that apply: ',
+    ofWord:' of ',
+    legendExact:' — Craft of Exile weights for this base, ',
+    legendEstimate:' — by tags (Path of Building).',
+    methodWord:'Method',
+    chanceWord:'Chance',
+    priceWord:'Price',
+    attemptsColumn:'Tries to 90%',
+    // the picker: list and detail
+    openPrefixes:'Open: prefixes ',
+    openSuffixes:', suffixes ',
+    modsShort:' mods',
+    noMethods:'There are no available methods for this item right now.',
+    detailPick:'Pick a method on the left — its modifiers, price and buttons appear on the right.',
+    chancePrefix:'chance ',
+    pricePrefix:'price ',
+    toNinetyPrefix:'to 90% ',
+    attemptsSuffix:' tries',
+    filterPlaceholder:'search modifiers',
+    tierWord:'Tier',
+    nameWord:'Name',
+    sortDesc:'desc. ↓',
+    sortAsc:'asc. ↑',
+    tierAtMostPrefix:'tier ≤ ',
+    anyTier:'any tier',
+    modWord:'Modifier',
+    sourceWord:'Source',
+    noModsForFilter:'No modifiers match this filter.',
+    shownPrefix:'Showing ',
+    shownTail:' — the rest loads as you scroll.',
+    shownAllPrefix:'All ',
+    shownAllTail:' modifiers of this method are shown.',
+    noModPick:'This method does not pick a modifier: it changes the item’s properties.',
+    doneButton:'Done',
+    failedButton:'Failed',
+    savedMark:'save',
+    // advanced techniques and the mentor's course
+    techniquesHead:'ADVANCED TECHNIQUES FOR THIS ITEM',
+    riskPrefix:'risk: ',
+    sourcePrefix:'Source: ',
+    curriculumHead:'MENTOR COURSE: ',
+    curriculumTail:' already clear from this item',
+    // the stage the player is in
+    stagePrefix:'Stage: ',
+    stageCampaign:'campaign',
+    stageEarly:'early endgame',
+    stageEndgame:'endgame',
+    // reporting what happened
+    fallbackMethod:'method',
+    confirmDone:'Marked as done: ',
+    confirmDoneTail:'. Now press Ctrl+Q on the item — the assistant compares the modifiers.',
+    confirmFailed:'Marked as failed: ',
+    confirmFailedTail:'. On the Methods tab open the undo block: it says what can free a prefix or a suffix '
+      +'and with what chance. Then Ctrl+Q on the item.',
+    openMethodsHint:'Open the Methods tab to pick another route.',
+    // craft or buy
+    craftOrBuyHead:'IS THIS WORTH CRAFTING',
+    expectedPrefix:' — expected ~',
+    expectedMiddle:' chaos for ',
+    costFor90Prefix:', ~',
+    costFor90Tail:' chaos covers 90 %',
+    noCost:'The cost could not be computed: there are no prices for the needed components.',
+    unknownPrice:': I do not know the price — the snapshot has no ',
+    tradeSearch:'What to search on the trade site to compare:',
+    itemLevelPrefix:' · item level ',
+    tierSpaced:'tier ',
+    buyPlaceholder:'price of the finished item in chaos, from the trade site',
+    compareButton:'Compare',
+    autoPriceTitle:'Ask the trade site: same base and the same modifiers',
+    priceButton:'Check price',
+    calculating:'Calculating…',
+    askingTrade:'Asking the trade site…',
+    nothingToCompare:'Nothing to compare with: the craft cost of this item is unknown.',
+    // the step card
+    noStep:'No step defined',
+    lessonTitle:'What is behind this',
+    ifSuccess:'If it worked: ',
+    ifFail:'If it went wrong: ',
+    afterStep:'After the step: copy the item again (Ctrl+C) and press Ctrl+Q.',
+    stateTakenHead:'WHAT IS ALREADY TAKEN',
+    openSlotsPrefix:'Open slots: ',
+    openSlotsTail:' (which of them is a prefix and which a suffix cannot be told from this text)',
+    craftedSlot:'Crafted slot: ',
+    taken:'taken',
+    open:'open',
+    desecratedSlot:'  ·  Desecrated slot: ',
+    modifiablePrefix:'Modifier can be changed: ',
+    modifiableNo:'NO — the item is locked',
+    yes:'yes',
+    corruptedLine:'THE ITEM IS DESECRATED — no changes are possible',
+    warningsHead:'WHAT NOT TO TOUCH',
+    itemHead:'THE ITEM',
+    corruptedFlag:'Desecrated',
+    sanctifiedFlag:'Sanctified — crafting is unavailable',
+    // beginner mode
+    beginnerButton:'Beginner',
+    everythingButton:'Everything',
+    showAllPrefix:'Show everything: ',
+    warningsShort:' warnings',
+    hiddenTaken:'what is taken',
+    hiddenItem:'the item',
+    hiddenMethods:'methods',
+    leaguePrefix:'league: ',
+    // the reference tab
+    bySources:' — from open sources',
+    mainRuleHead:'THE MAIN RULE',
+    capsHead:'TWO CAPS 0.5',
+    currenciesHead:'CURRENCIES: WHAT IT DOES AND WHAT YOU RISK',
+    whenPrefix:'When: ',
+    riskGuide:' Risk: ',
+    omensHead:'OMENS: CONTROL INSTEAD OF A DICE ROLL',
+    whyPrefix:'Why: ',
+    mistakesHead:'BEGINNER MISTAKES',
+    loopHead:'THE WORK CYCLE',
+    births:' births',
+    claimsHead:'CHECK A CLAIM',
+    claimIntro:'Type what you read in a guide or heard in a video — the assistant checks it against the rules '
+      +'it advises by.',
+    claimPlaceholder:'for example: Regal locks a prefix',
+    checkButton:'Check',
+    claimChecking:'Checking…',
+    knownTraps:'Known traps',
+    trapsCheckedTail:' are verified against engine data',
+    noAnswer:'No answer.',
+    nothingToCheck:'Nothing to check it with: ',
+    correctPrefix:'Correct: ',
+    wrongPrefix:'Wrong: ',
+    verifiedMark:' · <b>verified against engine data</b>',
+    manualMark:' · written down by hand, not verified against data'
+  }
+};
+function t(key){
+  var table=T[LANG]||T.ru;
+  var value=table[key];
+  return value===undefined?(T.ru[key]===undefined?key:T.ru[key]):value;
+}
+
+// The header, the tabs, the footer hint and the empty card are markup, not data, so they are drawn from the
+// table above instead of being written into the HTML: that is what leaves the page with no Russian of its own.
+function paintChrome(){
+  var title=document.getElementById('panel-title');
+  if(title){title.textContent=t('title');}
+  var stepTab=document.getElementById('tab-step');
+  if(stepTab){stepTab.textContent=t('tabStep');}
+  var methodsTab=document.getElementById('tab-methods');
+  if(methodsTab){methodsTab.textContent=t('tabMethods');}
+  var guideTab=document.getElementById('tab-guide');
+  if(guideTab){guideTab.textContent=t('tabGuide');}
+  var hint=document.getElementById('panel-hint');
+  if(hint){hint.textContent=t('footHint');}
+  paintLangSwitch();
+}
+
+// The switch shows which language the HOST has chosen, not which one was clicked: it is painted here and from
+// setLanguage only, so a failed round trip can never leave the switch and the text disagreeing.
+function paintLangSwitch(){
+  var ru=document.getElementById('lang-ru');
+  var en=document.getElementById('lang-en');
+  if(ru){ru.className='tab'+(LANG==='ru'?' on':'');}
+  if(en){en.className='tab'+(LANG==='en'?' on':'');}
+}
+
+// The card that waits for a capture: chrome only, no engine data in it.
+function renderEmptyStep(){
+  return '<div class="empty-title">'+t('emptyTitle')+'</div>'
+    +'<div class="empty-step">'+t('emptyStep1')+'</div>'
+    +'<div class="empty-step">'+t('emptyStep2')+'</div>'
+    +'<div class="empty-step">'+t('emptyStep3')+'</div>'
+    +'<div class="empty-hint">'+t('emptyHint')+'</div>';
+}
+
+function esc(v){return String(v===null||v===undefined?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function lines(text,c){return String(text||'').split('\n').filter(r=>r.trim()!=='').map(r=>'<div class="'+(c||'prop')+'">'+esc(r)+'</div>').join('');}
+function showTab(which){
+  document.getElementById('step-view').style.display = which==='step' ? '' : 'none';
+  document.getElementById('methods-view').style.display = which==='methods' ? '' : 'none';
+  document.getElementById('guide-view').style.display = which==='guide' ? '' : 'none';
+  document.getElementById('tab-step').className = 'tab'+(which==='step'?' on':'');
+  document.getElementById('tab-methods').className = 'tab'+(which==='methods'?' on':'');
+  document.getElementById('tab-guide').className = 'tab'+(which==='guide'?' on':'');
+  if(which==='methods'){paintMethods();}
+}
+// What happened between the previous capture and this one. Without this the player cannot tell a
+// step that failed from a step that was never applied.
+function renderReview(review){
+  if(!review){return '';}
+  if(!review.sameItem){
+    return '<div class="review new">'+t('reviewNew')+'</div>';
+  }
+  const v=review.verdict||'nothing';
+  const changes=review.changes||{added:[],removed:[]};
+  const words={
+    progress:t('reviewProgress'),
+    nothing:t('reviewNothing'),
+    loss:t('reviewLoss'),
+    swap:t('reviewSwap')
+  }[v]||'';
+  const rows=[];
+  rows.push('<div class="review '+(v==='progress'?'ok':(v==='nothing'?'warn':'no'))+'">'+esc(words)+'</div>');
+  if((changes.added||[]).length){rows.push('<div class="rev-add">'+t('reviewAdded')+esc(changes.added.join('; '))+'</div>');}
+  if((changes.removed||[]).length){rows.push('<div class="rev-del">'+t('reviewRemoved')+esc(changes.removed.join('; '))+'</div>');}
+  rows.push('<div class="dim">'+t('reviewSame')+esc(changes.same||0)+t('reviewBefore')+esc((review.before||[]).length)+t('reviewAfter')+esc((review.after||[]).length)+'</div>');
+  rows.push('<div class="dim">'+t('reviewPrevious')+esc(review.previousStep||'—')+'</div>');
+  return '<div class="review-box">'+rows.join('')+'</div>';
+}
+// An engine that ANSWERED with an error is not an engine that stayed silent, and the two need different
+// advice: a silent engine means it is not running, an erroring one means the item broke the analysis.
+// Saying "did not answer" for both sent the customer looking at the wrong thing.
+window.showEngineError=function(m){
+  var text=String(m==null?'':m);
+  var answered=/^\s*\.?[\\/]?.*\.lua:\d+:/.test(text)||/error|ошиб|bad argument/i.test(text);
+  var head=answered?t('engineErrorAnswered'):t('engineErrorSilent');
+  var tail=answered?t('engineErrorTail'):'';
+  document.getElementById('step-view').innerHTML='<div class="prop no">'+esc(head+text+tail)+'</div>';
+};
+
+// Rouble-free rule: a price arrives as a set of currencies ("0.46 exalted + 0.01 chaos"). Only the
+// largest one survives, because the table is narrow and the rest is noise.
+function formatCost(raw){
+  if(raw===undefined||raw===null){return '';}
+  if(typeof raw!=='object'){return String(raw);}
+  const parts=Object.keys(raw).map(k=>({key:k,value:Number(raw[k])}))
+    .filter(p=>!Number.isNaN(p.value)&&p.value>=0.005)
+    .sort((a,b)=>b.value-a.value);
+  return parts.length ? parts[0].value.toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+' '+parts[0].key : '—';
+}
+
+// The mark that says whether a chance can be trusted. "coe" means the weights were measured on
+// Craft of Exile for this exact base; anything else is the tag-based estimate from Path of
+// Building. The engine decides this (weightSource); the panel only draws it.
+function sourceBadge(source, title){
+  const hint = title ? ' title="'+esc(title)+'"' : '';
+  if(source==='coe'){return '<span class="src exact"'+hint+'>'+t('exact')+'</span>';}
+  if(source==='mixed'){return '<span class="src estimate"'+hint+'>'+t('mixed')+'</span>';}
+  if(source){return '<span class="src estimate"'+hint+'>'+t('estimate')+'</span>';}
+  return '';
+}
+
+// The reliability of the recommended step, taken from the method the step names. An exalt step and
+// the "Exalted Orb" row of the engine's summary are the same craft, so they must not disagree.
+function stepSourceBadge(summary, step){
+  if(!summary||!step){return '';}
+  const key=String(step.currency||'').toLowerCase();
+  if(!key){return '';}
+  const row=((summary.entries)||[]).filter(r=>r&&r.applicable===true)
+    .filter(r=>String(r.label||'').toLowerCase()===key||String(r.method||'').toLowerCase()===key)[0];
+  return row ? sourceBadge(row.weightSource, t('stepBadgeTitle')) : '';
+}
+
+// Every crafting method the engine priced for this item, next to the step it recommends. The
+// reliability mark lives in the chance column, so a number is never read without its source.
+function renderStepMethods(summary){
+  const all=(summary&&summary.entries)||[];
+  const rows=all.filter(r=>r&&r.applicable===true);
+  if(!rows.length){return '';}
+  const out=[];
+  out.push('<h3>'+t('stepMethodsHead')+'</h3>');
+  out.push('<div class="prop dim">'+t('appliesPrefix')+esc(summary.applicable)+t('ofWord')+esc(summary.total)
+    +'. <span class="legend exact">'+t('exact')+'</span>'+t('legendExact')
+    +'<span class="legend estimate">'+t('estimate')+'</span>'+t('legendEstimate')+'</div>');
+  out.push('<div class="methods">');
+  out.push('<div class="method head"><span>'+t('methodWord')+'</span><span>'+t('chanceWord')
+    +'</span><span>'+t('priceWord')+'</span><span>'+t('attemptsColumn')+'</span></div>');
+  rows.forEach(r=>{
+    const chance=(r.chancePerAttempt===undefined||r.chancePerAttempt===null)
+      ? '' : (Number(r.chancePerAttempt)*100).toFixed(2)+'%';
+    const cost=formatCost(r.perAttempt!==undefined&&r.perAttempt!==null?r.perAttempt:r.cost);
+    const attempts=(r.attemptsFor90===undefined||r.attemptsFor90===null)?'':String(r.attemptsFor90);
+    out.push('<div class="method"><span>'+esc(r.label||r.method||'')+'</span>'
+      +'<span>'+esc(chance)+sourceBadge(r.weightSource, r.weightSource==='coe'
+        ? t('exactTitle') : t('estimateTitle'))+'</span>'
+      +'<span>'+esc(cost)+'</span><span>'+esc(attempts)+'</span></div>');
+  });
+  out.push('</div>');
+  return out.join('');
+}
+
+// ---- the methods picker (variant 3: method list left, modifiers right) -------------------------
+// The engine computes every method that applies, its chance, its price in three currencies and its whole
+// modifier pool. This screen arranges that data and nothing else, so its numbers cannot drift from the
+// recommendation on the other tab. Choosing a method fills the right pane instead of replacing the list,
+// which is what keeps the choices on screen while a long modifier list is read.
+var methodsData=null;      // payload of the last capture
+var methodsSel=null;       // the chosen method (an object, so the detail pane needs no lookup)
+var methodsSort='chance';  // chance | price | name | mods  (methods) / chance | tier | name  (modifiers)
+var methodsDesc=true;      // descending by default: best chance first
+var methodsFilter='';      // text filter over modifiers
+var methodsMinTier=0;      // 0 = any tier
+var methodsShown=20;       // modifiers drawn so far: the rest follow the scrollbar
+
+function priceText(rows){
+  // Cheapest first, as the customer asked; four decimals keep a thousandth from printing as "0".
+  if(!rows||!rows.length){return '—';}
+  return rows.map(function(r){
+    var amount=Number(r.amount);
+    var text=amount>=1?String(Math.round(amount*100)/100):String(Math.round(amount*10000)/10000);
+    return text+' '+esc(r.short||r.id);
+  }).join(' · ');
+}
+
+function sortMethods(list){
+  var arr=(list||[]).slice();
+  arr.sort(function(a,b){
+    var av,bv;
+    if(methodsSort==='price'){av=(a.price&&a.price[0])?a.price[0].amount:Infinity;
+      bv=(b.price&&b.price[0])?b.price[0].amount:Infinity;}
+    else if(methodsSort==='name'){av=String(a.title||'').toLowerCase();bv=String(b.title||'').toLowerCase();
+      return methodsDesc?(av<bv?1:(av>bv?-1:0)):(av<bv?-1:(av>bv?1:0));}
+    else if(methodsSort==='mods'){av=Number(a.modCount)||0;bv=Number(b.modCount)||0;}
+    else {av=Number(a.chance!==undefined&&a.chance!==null?a.chance:a.chancePerAttempt)||0;
+      bv=Number(b.chance!==undefined&&b.chance!==null?b.chance:b.chancePerAttempt)||0;}
+    return methodsDesc?bv-av:av-bv;
+  });
+  return arr;
+}
+
+function sortMods(list){
+  var arr=(list||[]).slice();
+  arr.sort(function(a,b){
+    var av,bv;
+    if(methodsSort==='tier'){av=Number(a.tier)||999;bv=Number(b.tier)||999;}
+    else if(methodsSort==='name'){av=String(a.text||'').toLowerCase();bv=String(b.text||'').toLowerCase();
+      return methodsDesc?(av<bv?1:(av>bv?-1:0)):(av<bv?-1:(av>bv?1:0));}
+    else {av=Number(a.chance)||0;bv=Number(b.chance)||0;}
+    return methodsDesc?bv-av:av-bv;
+  });
+  return arr;
+}
+
+function visibleMods(method){
+  var all=sortMods(method&&method.mods).filter(function(mod){
+    if(methodsMinTier>0&&(Number(mod.tier)||999)>methodsMinTier){return false;}
+    if(!methodsFilter){return true;}
+    return String(mod.text||'').toLowerCase().indexOf(methodsFilter)>=0;
+  });
+  return all;
+}
+
+function methodRow(method,current){
+  var chance=(method.chance!==undefined&&method.chance!==null)
+    ? Number(method.chance).toFixed(2)+'%'
+    : (method.chancePerAttempt?(Number(method.chancePerAttempt)*100).toFixed(2)+'%':'—');
+  // The chosen row is marked, not only tinted: two methods can legitimately share a name (a catalyst
+  // can be both the quality step and a league option), and with only a background the click looked like
+  // it had done nothing.
+  //
+  // A method the player's stage says to save is dimmed with a mark instead of disappearing: hiding it
+  // would look like a bug and teach nothing, and he should learn WHY he is saving it.
+  var saved=(method.allowedAtStage===false);
+  var suffix=saved?' <span class="save-mark" title="'+esc(method.stageNote||'')+'">'+t('savedMark')+'</span>':'';
+  return '<div class="mrow'+(current?' on':'')+(saved?' saved':'')
+    +'" onclick="selectMethod(\''+esc(method.id)+'\')">'
+    +'<span>'+(current?'✓ ':'')+esc(method.title)+suffix+'</span>'
+    +'<span class="dim">'+esc(chance)+'</span></div>';
+}
+
+function renderMethodsList(){
+  var out=[];
+  var split=methodsData.split||{};
+  out.push('<div class="dim">'+t('openPrefixes')+esc(split.openPrefixes!==null?split.openPrefixes:'?')
+    +t('openSuffixes')+esc(split.openSuffixes!==null?split.openSuffixes:'?')+'</div>');
+  (methodsData.groups||[]).forEach(function(group){
+    var rows=sortMethods(group.methods);
+    if(!rows.length){return;}
+    var total=rows.reduce(function(sum,row){return sum+(Number(row.modCount)||0);},0);
+    out.push('<h3>'+esc(group.title)+' <span class="dim">('+rows.length+' · '+total+t('modsShort')+')</span></h3>');
+    rows.forEach(function(method){out.push(methodRow(method,methodsSel&&methodsSel.id===method.id));});
+  });
+  if(!(methodsData.groups||[]).length){
+    out.push('<div class="prop dim">'+t('noMethods')+'</div>');
+  }
+  return out.join('');
+}
+
+// The advanced, state-dependent sequences: what an experienced crafter knows that a table of rules cannot
+// derive. They come with the payload already filtered to this item's state, so anything shown here applies.
+function renderTechniques(){
+  var list=(methodsData&&methodsData.techniques)||[];
+  if(!list.length){return '';}
+  var out=['<h3>'+t('techniquesHead')+' ('+list.length+')</h3>'];
+  list.forEach(function(technique){
+    out.push('<details class="technique"><summary>'+esc(technique.title)+'</summary>'
+      +'<div class="lesson-text">'+esc(technique.why||'')+'</div>'
+      +(technique.steps||[]).map(function(step,index){
+        return '<div class="tech-step"><b>'+(index+1)+'. '+esc(step.action||'')+'</b> — '
+          +esc(step.what||'')+'<br><span class="dim">'+t('riskPrefix')+esc(step.risk||'')+'</span></div>';
+      }).join('')
+      +'<div class="dim" style="margin-top:4px">'+t('sourcePrefix')+esc(technique.source||'')+'</div>'
+      +(technique.leagueNote?'<div class="league-note">'+esc(technique.leagueNote)+'</div>':'')
+      +'</details>');
+  });
+  return out.join('');
+}
+
+function renderMethodDetail(){
+  var method=methodsSel;
+  if(!method){
+    return '<div class="empty-step">'+t('detailPick')+'</div>';
+  }
+  var out=[];
+  out.push('<div class="detail-title">'+esc(method.title)+'</div>');
+  var bits=[];
+  if(method.modCount){bits.push(esc(method.modCount)+t('modsShort'));}
+  var chance=(method.chance!==undefined&&method.chance!==null)
+    ? Number(method.chance).toFixed(2)+'%'
+    : (method.chancePerAttempt?(Number(method.chancePerAttempt)*100).toFixed(2)+'%':null);
+  if(chance){bits.push(t('chancePrefix')+esc(chance));}
+  var price=priceText(method.price);
+  if(price!=='—'){bits.push(t('pricePrefix')+esc(price));}
+  if(method.attemptsFor90){bits.push(t('toNinetyPrefix')+esc(method.attemptsFor90)+t('attemptsSuffix'));}
+  if(bits.length){out.push('<div class="dim">'+bits.join(' · ')+'</div>');}
+  if(method.effect){out.push('<div class="prop dim">'+esc(method.effect)+'</div>');}
+  if(method.oddsNote){out.push('<div class="prop dim">'+esc(method.oddsNote)+'</div>');}
+  if(method.warning){out.push('<div class="branch no">'+esc(method.warning)+'</div>');}
+
+  if((method.mods||[]).length){
+    out.push('<div class="controls">'
+      +'<input id="method-filter" placeholder="'+t('filterPlaceholder')+'" value="'+esc(methodsFilter)+'" '
+      +'oninput="methodsFilter=this.value.toLowerCase();methodsShown=20;paintMethods()">'
+      +'<button class="'+(methodsSort==='chance'?'on':'')+'" onclick="setSort(\'chance\')">'+t('chanceWord')+'</button>'
+      +'<button class="'+(methodsSort==='tier'?'on':'')+'" onclick="setSort(\'tier\')">'+t('tierWord')+'</button>'
+      +'<button class="'+(methodsSort==='name'?'on':'')+'" onclick="setSort(\'name\')">'+t('nameWord')+'</button>'
+      +'<button onclick="flipOrder()">'+(methodsDesc?t('sortDesc'):t('sortAsc'))+'</button>'
+      +'<button onclick="cycleTier()">'+(methodsMinTier?(t('tierAtMostPrefix')+methodsMinTier):t('anyTier'))+'</button>'
+      +'</div>');
+    var all=visibleMods(method);
+    var rows=all.slice(0,methodsShown);
+    out.push('<div class="modgrid head"><div>'+t('modWord')+'</div><div>'+t('tierWord')+'</div>'
+      +'<div>'+t('chanceWord')+'</div><div>'+t('sourceWord')+'</div></div>');
+    if(!rows.length){
+      out.push('<div class="prop dim">'+t('noModsForFilter')+'</div>');
+    }
+    rows.forEach(function(mod){
+      out.push('<div class="modgrid"><div>'+esc(mod.text)+'</div><div>T'+esc(mod.tier||'?')+'</div>'
+        +'<div>'+esc(mod.chance)+'%</div>'
+        +'<div>'+sourceBadge(mod.weightSource, mod.weightSource==='coe'
+          ? t('exactTitle') : t('estimateTitle'))+'</div></div>');
+    });
+    if(rows.length<all.length){
+      out.push('<div class="prop dim">'+t('shownPrefix')+rows.length+t('ofWord')+all.length
+        +t('shownTail')+'</div>');
+    } else {
+      out.push('<div class="prop dim">'+t('shownAllPrefix')+all.length+t('shownAllTail')+'</div>');
+    }
+  } else if(method.oddsUnknown===false||method.oddsNote){
+    out.push('<div class="prop dim">'+t('noModPick')+'</div>');
+  }
+  out.push('<div class="actions">'
+    +'<button onclick="confirmStep(\'done\')">'+t('doneButton')+'</button>'
+    +'<button onclick="confirmStep(\'failed\')">'+t('failedButton')+'</button>'
+    +'</div>');
+  return out.join('');
+}
+
+// The mentor's course, on the item in hand: a lesson the item already demonstrates is ticked, so the player
+// reads what is still new instead of the whole list.
+function renderCurriculum(){
+  var list=(methodsData&&methodsData.curriculum)||[];
+  if(!list.length){return '';}
+  var done=0;
+  list.forEach(function(lesson){if(lesson.done){done=done+1;}});
+  var out=['<h3>'+t('curriculumHead')+done+t('ofWord')+list.length+t('curriculumTail')+'</h3>'];
+  list.forEach(function(lesson,index){
+    out.push('<details class="technique'+(lesson.done?' done':'')+'">'
+      +'<summary>'+(lesson.done?'✓ ':'')+(index+1)+'. '+esc(lesson.title)+'</summary>'
+      +'<div class="lesson-text">'+esc(lesson.text)+'</div></details>');
+  });
+  return out.join('');
+}
+
+function renderMethodsView(){
+  if(!methodsData){
+    return '<div class="empty-title">'+t('emptyTitle')+'</div>'
+      +'<div class="empty-step">'+t('methodsEmptyHint')+'</div>'
+      +'<div class="howto">'
+      +'<b>'+t('howtoTitle')+'</b><br>'
+      +t('howto1')
+      +t('howto2')
+      +t('howto3')
+      +t('howto4')
+      +t('howto5')
+      +'</div>';
+  }
+  // The stage line answers "why are half of these marked save": a beginner needs that rule stated once,
+  // in words, rather than inferred from dimmed rows.
+  var stage=methodsData.stage||{};
+  var stageLine='';
+  if(stage.id){
+    var id=esc(stage.id);
+    stageLine='<div class="stage-line"><b>'+esc(stage.label||'')+'</b> — '
+      +esc(stage.description||'')+'</div>'
+      +'<div class="stage-switch">'+t('stagePrefix')
+      +['campaign','early','endgame'].map(function(choice){
+        return '<button class="'+(choice===stage.id?'on':'')+'" onclick="setStage(\''+choice+'\')">'
+          +esc({campaign:t('stageCampaign'),early:t('stageEarly'),endgame:t('stageEndgame')}[choice])+'</button>';
+      }).join(' ')+'</div>';
+  }
+  return stageLine+'<div class="split"><div class="left">'+renderMethodsList()+'</div>'
+    +'<div class="right">'+renderMethodDetail()+'</div></div>'
+    + renderCurriculum() + renderTechniques();
+}
+
+function paintMethods(){
+  var view=document.getElementById('methods-view');
+  if(!view){return;}
+  // The scroll position is restored on the REAL scroller. Using the view's parent looked right and was
+  // wrong: the parent is not what scrolls, so every repaint jumped the panel back to the top - which is
+  // what made scrolling for more modifiers impossible.
+  var scroller=methodsScroller();
+  var wasAt=scroller?scroller.scrollTop:0;
+  view.innerHTML=renderMethodsView();
+  if(scroller){scroller.scrollTop=wasAt;}
+}
+
+function selectMethod(id){
+  var found=null;
+  ((methodsData&&methodsData.groups)||[]).forEach(function(group){
+    (group.methods||[]).forEach(function(row){if(row.id===id){found=row;}});
+  });
+  if(!found){return;}
+  methodsSel=found;
+  methodsShown=20;   // a new choice starts from the top of its own list
+  paintMethods();
+}
+function setSort(which){methodsSort=which;paintMethods();}
+function flipOrder(){methodsDesc=!methodsDesc;paintMethods();}
+function cycleTier(){methodsMinTier=methodsMinTier===0?3:(methodsMinTier===3?1:0);methodsShown=20;paintMethods();}
+
+// The stage is a judgement the ENGINE makes (from the item level) or the player makes by choosing. It is
+// not filtered here: the choice goes back to the host, the item is analysed again with it, and the panel
+// draws whatever comes back - so the rules for what to save live in one place.
+function setStage(stage){
+  if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage('stage:'+stage);}
+}
+
+// "Failed": the customer asked for the ways to free the side rather than a repeat of the same
+// method, and the picker already lists them, so this points at them instead of inventing a step.
+function confirmStep(outcome){
+  var name=methodsSel?methodsSel.title:t('fallbackMethod');
+  var box=document.getElementById('step-view');
+  var message=outcome==='done'
+    ? t('confirmDone')+name+t('confirmDoneTail')
+    : t('confirmFailed')+name+t('confirmFailedTail');
+  if(box){
+    box.innerHTML='<div class="step"><div class="step-title">'+esc(message)+'</div>'
+      +'<div class="loop">'+t('openMethodsHint')+'</div></div>';
+  }
+  showTab('step');
+}
+
+// Scrolling inside the panel reveals the rest of a long modifier list, as the customer asked: the first
+// twenty rows are drawn and the remainder follows the scrollbar instead of a button.
+//
+// The scroller is the panel itself (".panel" has overflow-y), NOT the window, and a scroll inside an
+// element never reaches a window listener without capturing - which is why the customer scrolled and
+// nothing loaded. The listener is registered with capture:true (see the bottom of this script), and this
+// function finds the real scroller by walking up from the picker instead of assuming its parent.
+function methodsScroller(){
+  var node=document.getElementById('methods-view');
+  while(node&&node!==document.body){
+    var style=window.getComputedStyle(node);
+    var overflowY=style?style.overflowY:'';
+    if((overflowY==='auto'||overflowY==='scroll')&&node.scrollHeight>node.clientHeight+4){
+      return node;
+    }
+    node=node.parentNode;
+  }
+  return document.scrollingElement||document.documentElement;
+}
+
+function methodsOnScroll(){
+  if(!methodsData||!methodsSel){return;}
+  var view=document.getElementById('methods-view');
+  if(!view||view.style.display==='none'){return;}
+  var scroller=methodsScroller();
+  if(!scroller){return;}
+  if(scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-40){return;}
+  var all=visibleMods(methodsSel);
+  if(methodsShown<all.length){methodsShown=methodsShown+20;paintMethods();}
+}
+
+// The whole screen comes from the engine: the step it recommends, the warnings that apply to this
+// item, and the reference. Nothing is computed here.
+// "Craft or buy?" - every guide says answer this BEFORE spending. The panel can only compute the craft side:
+// the price snapshot has never carried rare items, so it shows the cost, the search recipe and the rule, and
+// says plainly that the finished-item price has to be looked up. A fabricated buy price would be worse than
+// none.
+function renderCraftOrBuy(block){
+  if(!block){return '';}
+  var parts=['<h3>'+t('craftOrBuyHead')+'</h3>'];
+  if(block.hasCost&&block.cheapest){
+    var c=block.cheapest;
+    var cost=(c.expectedCost&&c.expectedCost.chaos!==undefined)
+      ? Number(c.expectedCost.chaos).toFixed(2) : '—';
+    parts.push('<div class="step-why"><b>'+esc(c.method)+'</b>'+t('expectedPrefix')+esc(cost)
+      +t('expectedMiddle')+esc(String(c.expectedAttempts||'?'))+t('attemptsSuffix')
+      +(c.costFor90?t('costFor90Prefix')+esc(Number(c.costFor90.chaos).toFixed(2))+t('costFor90Tail'):'')+'.</div>');
+  } else {
+    parts.push('<div class="step-why dim">'+t('noCost')+'</div>');
+  }
+  // Routes we cannot price are named rather than ranked: a lower bound is not a price.
+  (block.unpriced||[]).forEach(function(route){
+    parts.push('<div class="branch no">'+esc(route.method)+t('unknownPrice')
+      +esc((route.missing||[]).join(', '))+'</div>');
+  });
+  if(block.recipe&&(block.recipe.stats||[]).length){
+    parts.push('<div class="dim" style="margin-top:4px">'+t('tradeSearch')+'</div>');
+    parts.push('<div class="lesson-text">'+esc(block.recipe.class||'')+t('itemLevelPrefix')
+      +esc(String(block.recipe.itemLevel||'?'))+' · '+esc(block.recipe.rarity||'')+'<br>'
+      +(block.recipe.stats||[]).map(function(stat){
+        return '• '+esc(stat.text)+(stat.tier?(' ('+t('tierSpaced')+esc(String(stat.tier))+')'):'');
+      }).join('<br>')+'</div>');
+  }
+  if(block.rule){parts.push('<div class="step-why" style="margin-top:5px">'+esc(block.rule)+'</div>');}
+  // The half of the comparison we cannot compute: what the finished item actually sells for. The player
+  // looks it up and types it, and then the decision is real arithmetic on two known numbers instead of a rule
+  // of thumb. The panel never guesses a market price.
+  if(block.hasCost){
+    parts.push('<div class="controls"><input id="buy-input" placeholder="'+t('buyPlaceholder')+'" '
+      +'style="flex:1;min-width:150px" onkeydown="if(event.key===\'Enter\')askBuy()">'
+      +'<button onclick="askBuy()">'+t('compareButton')+'</button>'
+      +'<button onclick="askAutoPrice()" title="'+t('autoPriceTitle')+'">'+t('priceButton')+'</button>'
+      +'</div><div id="buy-verdict"></div>');
+  }
+  if(block.priceNote){parts.push('<div class="dim">'+esc(block.priceNote)+'</div>');}
+  return parts.join('');
+}
+
+// Ask the host to compare the craft cost with the price the player just looked up.
+function askBuy(){
+  var input=document.getElementById('buy-input');
+  var value=input?String(input.value).replace(',','.').trim():'';
+  if(!value){return;}
+  if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage('buy:'+value);}
+  buyPending='calculating';
+  paintBuyVerdict();
+}
+
+// Ask the host to price the item on the live trade site instead of asking the player.
+function askAutoPrice(){
+  if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage('autoprice');}
+  buyPending='askingTrade';
+  paintBuyVerdict();
+}
+
+// The engine's verdict, cached so a language switch can redraw it without asking the engine again.
+// It always says that the craft cost is an average and that the price came from the player, because a
+// comparison is only as honest as its inputs.
+var lastBuyVerdict=null;   // {verdict, priceNote} of the last answer; null before the first one
+var buyPending=null;       // key of the placeholder shown while the host works, or null
+function paintBuyVerdict(){
+  var box=document.getElementById('buy-verdict');
+  if(!box){return;}
+  if(buyPending){box.innerHTML='<div class="guide-row dim">'+t(buyPending)+'</div>';return;}
+  if(!lastBuyVerdict){box.innerHTML='';return;}
+  var verdict=lastBuyVerdict.verdict;
+  var priceNote=lastBuyVerdict.priceNote;
+  if(!verdict||!verdict.verdict){
+    var why=verdict&&verdict.text?esc(verdict.text):t('nothingToCompare');
+    box.innerHTML='<div class="branch no">'+why+'</div>';
+    return;
+  }
+  var css=verdict.verdict==='buy'?'no':(verdict.verdict==='craft'?'ok':'');
+  box.innerHTML='<div class="branch '+css+'">'+esc(verdict.text||'')+'</div>'
+    +'<div class="dim">'+esc(verdict.line||'')+'</div>'
+    +(priceNote?'<div class="dim">'+esc(priceNote)+'</div>':'')
+    +'<div class="dim">'+esc(verdict.note||'')+'</div>';
+}
+window.showBuyVerdict=function(verdict, priceNote){
+  lastBuyVerdict={verdict:verdict, priceNote:priceNote};
+  buyPending=null;
+  paintBuyVerdict();
+};
+
+// Beginner mode beats showing everything. The complaint that started this was not "the panel lacks features"
+// but "I still do not understand how to use it", and seven blocks at once is why. Default ON; the choice is
+// remembered, and "Everything" restores the full card for anyone who wants it.
+var beginnerMode=(function(){try{return localStorage.getItem('poe2craft.beginner')!=='0';}catch(e){return true;}})();
+var lastCoach=null;        // the payload of the last showCoach call: the step card is redrawn from it
+var lastGuide=null;        // the guide payload, for the same reason on the reference tab
+function setBeginner(on){
+  beginnerMode=!!on;
+  try{localStorage.setItem('poe2craft.beginner', beginnerMode?'1':'0');}catch(e){}
+  if(lastCoach){window.showCoach(lastCoach.report,lastCoach.analysis,lastCoach.client,lastCoach.guide);}
+}
+
+// ---- language ----------------------------------------------------------------------------------------
+// The switch only ASKS the host and never changes the page itself: the host answers with setLanguage after
+// it has re-asked the engine for its text, so the page and the engine cannot end up in different languages.
+function chooseLanguage(code){
+  if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage('lang:'+code);}
+}
+
+// The one place that decides what language the page is in. Only chrome is redrawn, and only from data already
+// held: the engine is asked by the host, not from here, and the engine's own text is left exactly as it came.
+window.setLanguage=function(code){
+  LANG=(code==='en')?'en':'ru';
+  document.documentElement.lang=LANG;
+  // What the player has typed lives only in the inputs, so the redraw carries it across by hand: losing a
+  // price he just looked up in the trade site would make the switch feel like a reset.
+  var typedBuy=inputValue('buy-input');
+  var typedClaim=inputValue('claim-input');
+  paintChrome();
+  if(lastCoach){
+    // The step card holds the review, the step, the state, the warnings and the item: re-running showCoach
+    // with the payload it was given is the same render, in the new language.
+    window.showCoach(lastCoach.report,lastCoach.analysis,lastCoach.client,lastCoach.guide);
+  } else {
+    document.getElementById('step-view').innerHTML=renderEmptyStep();
+    document.getElementById('guide-view').innerHTML='';
+  }
+  paintMethods();
+  if(lastGuide){renderGuide(lastGuide);}
+  restoreInput('buy-input', typedBuy);
+  restoreInput('claim-input', typedClaim);
+  if(claimPending||lastClaimAnswer!==undefined){paintClaimAnswer();}
+  if(buyPending||lastBuyVerdict){paintBuyVerdict();}
+};
+
+function inputValue(id){
+  var node=document.getElementById(id);
+  return node?String(node.value):'';
+}
+function restoreInput(id, value){
+  var node=document.getElementById(id);
+  if(node&&value){node.value=value;}
+}
+
+window.showCoach=function(report, analysis, client, guide){
+  // The methods payload arrives with the analysis, so the picker costs no extra engine call. The
+  // previous choice is kept when the item is still the same, because a capture right after a step
+  // should show that same method's updated numbers rather than jump back to the first one.
+  methodsData=(analysis&&analysis.methods)||null;
+  var previous=methodsSel?methodsSel.id:null;
+  methodsSel=null;
+  if(previous&&methodsData){selectMethod(previous);}
+  if(!methodsSel&&methodsData&&(methodsData.groups||[]).length){
+    var firstGroup=methodsData.groups[0];
+    var firstMethod=(firstGroup.methods||[])[0];
+    if(firstMethod){selectMethod(firstMethod.id);}
+  }
+
+  if(!report){window.showEngineError(t('emptyAnswer'));return;}
+  lastCoach={report:report,analysis:analysis,client:client,guide:guide};
+  const item=(analysis&&analysis.item)||{};
+  const header=(client&&client.header)||{};
+  const parts=[];
+  const extras=[];
+  parts.push('<div class="name">'+esc(header.name||item.name||'')+'</div>');
+  parts.push('<div class="base">'+esc(header.base||item.baseType||'')+''
+    +'<span class="mode-switch"><button onclick="setBeginner(true)" class="'+(beginnerMode?'on':'')+'">'+t('beginnerButton')+'</button>'
+    +'<button onclick="setBeginner(false)" class="'+(beginnerMode?'':'on')+'">'+t('everythingButton')+'</button></span></div>');
+
+  const step=report.step||{};
+  (beginnerMode?extras:parts).push(renderReview(report.review));
+  parts.push('<div class="step">');
+  parts.push('<div class="step-title">'+esc(step.title||t('noStep'))+'</div>');
+  if(step.costLine){parts.push('<div class="step-cost">'+esc(step.costLine)+stepSourceBadge(analysis&&analysis.craftSummary, step)+'</div>');}
+  if(step.why){parts.push('<div class="step-why">'+esc(step.why)+'</div>');}
+  // The lesson states the principle behind the action, which is what makes the player independent of the
+  // tool next time. It is collapsed by default: a beginner who only wants the next click should not have to
+  // scroll past a paragraph, and one who wants to learn opens it once.
+  if(step.lesson){
+    parts.push('<details class="lesson"><summary>'+(step.lessonTitle?esc(step.lessonTitle):t('lessonTitle'))+'</summary>'
+      +'<div class="lesson-text">'+esc(step.lesson)+'</div></details>');
+  }
+  (beginnerMode?extras:parts).push(
+    (step.ifSuccess?'<div class="branch ok">'+t('ifSuccess')+esc(step.ifSuccess)+'</div>':'')
+    +(step.ifFail?'<div class="branch no">'+t('ifFail')+esc(step.ifFail)+'</div>':''));
+  parts.push(renderCraftOrBuy(report.craftOrBuy));
+  // The two answers the loop needs, on the screen where the step is read. They used to live only inside the
+  // method detail on the "Methods" tab, so a beginner had to know where to look to report what happened.
+  parts.push('<div class="actions">'
+    +'<button onclick="confirmStep(\'done\')">'+t('doneButton')+'</button>'
+    +'<button onclick="confirmStep(\'failed\')">'+t('failedButton')+'</button>'
+    +'</div>');
+  parts.push('<div class="loop">'+t('afterStep')+'</div>');
+  parts.push('</div>');
+
+  const state=report.state||{};
+  extras.push('<h3>'+t('stateTakenHead')+'</h3>');
+  const slots = state.splitKnown
+    ? t('openPrefixes')+state.openPrefixes+t('openSuffixes')+state.openSuffixes
+    : t('openSlotsPrefix')+state.openSlots+t('openSlotsTail');
+  extras.push(lines(slots
+    +'\n'+t('craftedSlot')+(state.craftedAnchorUsed?t('taken'):t('open'))
+    +t('desecratedSlot')+(state.desecratedAnchorUsed?t('taken'):t('open'))
+    +'\n'+t('modifiablePrefix')+(state.modifiable===false?t('modifiableNo'):t('yes'))
+    +(state.corrupted?'\n'+t('corruptedLine'):''),'guide-row'));
+
+  const warnings=report.warnings||[];
+  if(warnings.length){
+    extras.push('<h3>'+t('warningsHead')+' ('+warnings.length+')</h3>');
+    warnings.forEach(w=>extras.push('<div class="warn">• '+esc(w.text)+'</div>'));
+  }
+
+  if(client&&((client.properties||[]).length||(client.mods||[]).length)){
+    extras.push('<h3>'+t('itemHead')+'</h3>');
+    (client.properties||[]).forEach(p=>extras.push('<div class="prop">'+esc(p.label+': '+p.value)+'</div>'));
+    (client.mods||[]).forEach(m=>extras.push('<div class="mod"'+(m.fractured?' style="color:var(--gold)"':'')+'>'+esc(m.text)+'</div>'));
+    if(client.flags&&client.flags.corrupted){extras.push('<div class="prop no">'+t('corruptedFlag')+'</div>');}
+    // The state that closes an item to further crafting, shown where the item is: without this line
+    // an item that cannot be crafted looks like any other and the missing step looks like a bug.
+    if(client.flags&&client.flags.sanctified){extras.push('<div class="prop no">'+t('sanctifiedFlag')+'</div>');}
+  }
+  // The menus of methods sit last on purpose: with them first the "what is already taken" and
+  // "what not to touch" blocks fell below the fold, and those decide the next click.
+  extras.push(renderStepMethods(analysis&&analysis.craftSummary));
+
+  // Beginner mode keeps one question on screen - what do I do now - and puts the rest behind one click. The
+  // count is in the summary so nothing is hidden silently: a warning the player never sees is worse than a
+  // warning below the fold.
+  if(beginnerMode){
+    const hidden=[];
+    if(warnings.length){hidden.push(warnings.length+t('warningsShort'));}
+    hidden.push(t('hiddenTaken'),t('hiddenItem'),t('hiddenMethods'));
+    parts.push('<details class="more"><summary>'+t('showAllPrefix')+hidden.join(' · ')+'</summary>'
+      +extras.join('')+'</details>');
+  } else {
+    parts.push(extras.join(''));
+  }
+
+  document.getElementById('step-view').innerHTML=parts.join('');
+  const league=((analysis&&analysis.craftSummary)||{}).league;
+  if(league){document.getElementById('league').textContent=t('leaguePrefix')+league;}
+  if(guide){lastGuide=guide;renderGuide(guide);}
+};
+
+function renderGuide(g){
+  const out=[];
+  out.push('<div class="guide-row dim">'+esc(g.league||'')+t('bySources')+'</div>');
+  out.push('<h3>'+t('mainRuleHead')+'</h3><div class="guide-row">'+esc(g.mainRule||'')+'</div>');
+  out.push('<h3>'+t('capsHead')+'</h3>');
+  (g.caps||[]).forEach(c=>out.push('<div class="guide-row"><b>'+esc(c.title)+'</b><br>'+esc(c.text)+'</div>'));
+  out.push('<h3>'+t('currenciesHead')+'</h3>');
+  (g.orbs||[]).forEach(o=>out.push('<div class="guide-row"><b>'+esc(o.name)+'</b> — '+esc(o.does)
+    +'<br><span class="dim">'+t('whenPrefix')+esc(o.when)+t('riskGuide')+esc(o.risk)+'</span></div>'));
+  out.push('<h3>'+t('omensHead')+'</h3>');
+  ((g.omens||{}).entries||[]).forEach(o=>out.push('<div class="guide-row"><b>'+esc(o.name)+'</b> — '+esc(o.does)
+    +'<br><span class="dim">'+t('whyPrefix')+esc(o.why)+'</span></div>'));
+  if(g.tiers){out.push('<h3>'+esc(g.tiers.title)+'</h3><div class="guide-row">'+esc(g.tiers.text)+'</div>');}
+  if(g.essence){out.push('<h3>'+esc(g.essence.title)+'</h3><div class="guide-row">'+esc(g.essence.text)+'</div>');}
+  if(g.groups){out.push('<h3>'+esc(g.groups.title)+'</h3><div class="guide-row">'+esc(g.groups.text)+'</div>');}
+  if(g.desecration){out.push('<h3>'+esc(g.desecration.title)+'</h3><div class="guide-row">'+esc(g.desecration.text)+'</div>');}
+  if(g.alloys){out.push('<h3>'+esc(g.alloys.title)+'</h3><div class="guide-row">'+esc(g.alloys.text)+'</div>');}
+  out.push('<h3>'+t('mistakesHead')+'</h3>');
+  (g.mistakes||[]).forEach(m=>out.push('<div class="warn">• '+esc(m.text)+'</div>'));
+  out.push('<h3>'+t('loopHead')+'</h3>');
+  (g.loop||[]).forEach(l=>out.push('<div class="guide-row">'+esc(l)+'</div>'));
+  // The Genesis Tree: since 0.5.0 catalysts do not drop from monsters, so this is where jewellery quality
+  // comes from. Shown with expected births, because "how many tries" is what decides whether to do it at all.
+  if(g.genesisTree){
+    out.push('<h3>GENESIS TREE</h3>');
+    out.push('<div class="guide-row dim">'+esc(g.genesisTree.location||'')+'</div>');
+    (g.genesisTree.goals||[]).forEach(function(goal){
+      var tries=goal.expectedBirths?(' · ~'+esc(String(goal.expectedBirths))+t('births')):'';
+      var chance=(goal.chance!==undefined)?(' · '+esc((Number(goal.chance)*100).toFixed(1))+'%'):'';
+      out.push('<div class="guide-row"><b>'+esc(goal.title)+'</b> — '+esc(goal.wombgift||'')
+        +chance+tries+'</div>');
+    });
+    (g.genesisTree.notes||[]).forEach(function(note){
+      out.push('<div class="warn">• '+esc(note)+'</div>');
+    });
+  }
+  // "Is this true?" - the question a beginner cannot answer alone, and the one that protects him from the
+  // fabricated guides found while researching the topic. The answer comes from the engine, not from here.
+  out.push('<h3>'+t('claimsHead')+'</h3>');
+  out.push('<div class="guide-row dim">'+t('claimIntro')+'</div>');
+  out.push('<div class="controls"><input id="claim-input" placeholder="'+t('claimPlaceholder')+'" '
+    +'style="flex:1;min-width:180px" onkeydown="if(event.key===\'Enter\')askClaim()">'
+    +'<button onclick="askClaim()">'+t('checkButton')+'</button></div>');
+  out.push('<div id="claim-answer"></div>');
+  if(g.claims&&g.claims.length){
+    // Say how many of the traps our own ruleset settles: a claim we merely wrote down is weaker evidence
+    // than one the data contradicts, and the player should know which he is looking at.
+    var checked=(g.claimsChecked&&g.claimsChecked.checked)||0;
+    out.push('<div class="guide-row dim" style="margin-top:6px">'+t('knownTraps')
+      +(checked?(' — '+checked+t('ofWord')+g.claims.length+t('trapsCheckedTail')):'')+':</div>');
+    g.claims.filter(c=>c.verdict==='false').forEach(function(c){
+      out.push('<div class="warn">• '+esc(c.title)+'</div>');
+    });
+  }
+  document.getElementById('guide-view').innerHTML=out.join('');
+}
+
+// The question goes to the host, which asks the engine: the rules for what is true live in one place, and the
+// page must not become a second opinion.
+var lastClaimAnswer;       // undefined = never answered on this page; null = the host answered "no answer"
+var claimPending=false;    // the answer is still on its way
+function askClaim(){
+  var input=document.getElementById('claim-input');
+  var text=input?input.value.trim():'';
+  if(!text){return;}
+  if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage('claim:'+text);}
+  claimPending=true;
+  paintClaimAnswer();
+}
+
+// The engine's verdict, shown with its reason and where it comes from. Cached, so a language switch redraws
+// it from the same answer instead of asking again.
+function paintClaimAnswer(){
+  var box=document.getElementById('claim-answer');
+  if(!box){return;}
+  if(claimPending){box.innerHTML='<div class="guide-row dim">'+t('claimChecking')+'</div>';return;}
+  var answer=lastClaimAnswer;
+  if(!answer){box.innerHTML='<div class="guide-row dim">'+t('noAnswer')+'</div>';return;}
+  if(answer.known===false){
+    box.innerHTML='<div class="branch no">'+t('nothingToCheck')+esc(answer.why||'')+'</div>';
+    return;
+  }
+  var right=answer.verdict==='true';
+  box.innerHTML='<div class="branch '+(right?'ok':'no')+'">'
+    +(right?t('correctPrefix'):t('wrongPrefix'))+esc(answer.title||'')+'</div>'
+    +'<div class="guide-row">'+esc(answer.why||'')+'</div>'
+    +'<div class="guide-row dim">'+t('sourcePrefix')+esc(answer.source||'')
+    +(answer.verified?t('verifiedMark'):t('manualMark'))
+    +'</div>';
+}
+window.showClaimAnswer=function(answer){
+  lastClaimAnswer=answer||null;
+  claimPending=false;
+  paintClaimAnswer();
+};
+
+// Draw the page's own chrome the moment this script is parsed: the markup carries no words of its own, so not
+// one frame can be painted in the wrong language. The host calls setLanguage again once it knows the
+// player's choice, and that is the only thing that ever changes LANG afterwards.
+paintChrome();
+document.getElementById('step-view').innerHTML=renderEmptyStep();
+</script>
+<script>
+  (function () {
+    // Drag the window by its top strip. Offsets are sent as whole pixels so the move stays exact.
+    // The panel draws no close control of its own any more: the form's title bar carries the
+    // ordinary one, and a second drawn cross in the corner only duplicated it.
+    var last = null;
+    function send(dx, dy) {
+      if (window.chrome && window.chrome.webview) { window.chrome.webview.postMessage('drag:' + dx + ':' + dy); }
+    }
+    document.addEventListener('mousedown', function (e) {
+      if (e.clientY <= 22) { last = { x: e.screenX, y: e.screenY }; e.preventDefault(); }
+    });
+    document.addEventListener('mousemove', function (e) {
+      if (!last) { return; }
+      // The left button must still be held: a mouseup outside the page would otherwise leave the
+      // window following the cursor for the rest of the session, which looked like the panel
+      // emptying itself whenever the pointer moved past it.
+      if (!(e.buttons & 1)) { last = null; return; }
+      var dx = e.screenX - last.x, dy = e.screenY - last.y;
+      if (dx || dy) { last = { x: e.screenX, y: e.screenY }; send(dx, dy); }
+    });
+    document.addEventListener('mouseup', function () { last = null; });
+  // The picker draws twenty modifiers and loads the rest when the panel is scrolled to the end.
+  window.addEventListener('scroll', methodsOnScroll, true);
+    document.addEventListener('mouseleave', function () { last = null; });
+    window.addEventListener('blur', function () { last = null; });
+  })();
+</script>
+<script>window.onload=function(){window.showCoach({"step": {"title": "Следующий шаг: Exalted Orb", "currency": "Exalted Orb", "why": "Свободен суффикс — Exalted его займёт."}, "state": {"splitKnown": true, "openPrefixes": 0, "openSuffixes": 2, "openSlots": 2, "craftedAnchorUsed": false, "desecratedAnchorUsed": false, "modifiable": true}, "warnings": [], "review": null, "craftOrBuy": {"hasCost": true, "cheapest": {"method": "Exalted Orb", "expectedAttempts": 7.1, "expectedCost": {"chaos": 0.11, "exalted": 0.11, "divine": 0.01}, "costFor90": {"chaos": 0.24, "exalted": 0.24, "divine": 0.02}}, "unpriced": [{"method": "Desecration", "missing": ["Preserved Rib"]}], "recipe": {"class": "Sceptres", "itemLevel": 78, "rarity": "RARE", "stats": [{"text": "+3 to Level of all Minion Skills"}, {"text": "+45 to maximum Energy Shield"}]}, "rule": "Правило простое: если готовый предмет в трейде дешевле ожидаемой стоимости крафта — покупайте. Крафт оправдан, когда нужных модов в продаже нет или они дороже.", "pricesAsOf": "2026-10-06 23:17", "priceNote": "Цены валют — снимок от 2026-10-06 23:17; на рынке они меняются. Стоимость готового предмета панель не знает: цен на редкие предметы в снимке нет, поэтому её нужно посмотреть в трейде."}},{"item": {"name": "Ужасный нарост", "baseType": "Rattling Sceptre", "name0": "Rattling Sceptre", "itemClass": "Sceptres", "rarity": "RARE", "itemLevel": 78, "affixes": "3P/1S open 0P/2S"}, "ruleId": "rare_prefixes_full", "craftSummary": {"entries": []}, "methods": {"item": {"name": "Ужасный нарост", "base": "Rattling Sceptre", "class": "Sceptres", "rarity": "RARE", "ilvl": 78, "affixes": "3P/1S open 0P/2S", "rule": "rare_prefixes_full", "mods": []}, "groups": [{"id": "add", "title": "Добавить мод", "total": 6, "methods": [{"id": "exalted", "title": "Exalted Orb", "modCount": 21, "chance": 7.8, "attempts": 29, "oddsNote": "", "warning": "", "effect": "Adds one random modifier to a Rare item (max 3 prefixes + 3 suffixes).", "prices": [{"short": "div", "amount": 0.0019}, {"short": "ex", "amount": 1.3106}, {"short": "chaos", "amount": 0.02}], "mods": [{"text": "+(150-164) to maximum Mana", "tier": 5, "chance": 7.8, "weightSource": "weights"}, {"text": "Allies in your Presence Regenerate (29.1-33) Life per second", "tier": 1, "chance": 7.09, "weightSource": "weights"}, {"text": "Allies in your Presence deal (21-24) to (32-37) added Attack Cold Damage", "tier": 1, "chance": 6.38, "weightSource": "weights"}, {"text": "Allies in your Presence deal (25-29) to (39-45) added Attack Fire Damage", "tier": 1, "chance": 6.38, "weightSource": "weights"}, {"text": "Allies in your Presence deal (1-4) to (60-71) added Attack Lightning Damage", "tier": 1, "chance": 6.38, "weightSource": "weights"}, {"text": "Allies in your Presence deal (12-19) to (22-32) added Attack Physical Damage", "tier": 1, "chance": 6.38, "weightSource": "weights"}, {"text": "+(31-33) to Intelligence", "tier": 2, "chance": 5.67, "weightSource": "weights"}, {"text": "+(31-33) to Strength", "tier": 2, "chance": 5.67, "weightSource": "weights"}, {"text": "Allies in your Presence deal (90-104)% increased Damage", "tier": 2, "chance": 4.96, "weightSource": "weights"}, {"text": "(35-38)% increased Spirit", "tier": 1, "chance": 4.96, "weightSource": "weights"}, {"text": "(56-60)% increased Spirit", "tier": 2, "chance": 4.96, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-38)% increased Critical Hit Chance", "tier": 1, "chance": 4.26, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-39)% increased Critical Damage Bonus", "tier": 1, "chance": 4.26, "weightSource": "weights"}, {"text": "Allies in your Presence have +(15-16)% to all Elemental Resistances", "tier": 2, "chance": 3.55, "weightSource": "weights"}, {"text": "35% reduced Attribute Requirements", "tier": 1, "chance": 3.55, "weightSource": "weights"}, {"text": "(50-59)% increased Mana Regeneration Rate", "tier": 5, "chance": 3.55, "weightSource": "weights"}, {"text": "Minions have (41-45)% increased maximum Life", "tier": 2, "chance": 3.55, "weightSource": "weights"}, {"text": "Allies in your Presence have (14-16)% increased Attack Speed", "tier": 1, "chance": 2.84, "weightSource": "weights"}, {"text": "Allies in your Presence have (17-20)% increased Cast Speed", "tier": 1, "chance": 2.84, "weightSource": "weights"}, {"text": "(66-80)% increased Presence Area of Effect", "tier": 1, "chance": 2.84, "weightSource": "weights"}, {"text": "(18-22)% increased Mana Regeneration Rate", "tier": 1, "chance": 2.13, "weightSource": "weights"}]}, {"id": "greater_exalted", "title": "Greater Exalted Orb", "modCount": 21, "chance": 8, "attempts": 28, "oddsNote": "", "warning": "", "effect": "As Exalted, with a minimum modifier level of 35 - cuts the junk tiers.", "prices": [{"short": "div", "amount": 0.0136}, {"short": "ex", "amount": 9.1743}, {"short": "chaos", "amount": 0.14}], "mods": [{"text": "+(150-164) to maximum Mana", "tier": 5, "chance": 8, "weightSource": "weights"}, {"text": "Allies in your Presence deal (21-24) to (32-37) added Attack Cold Damage", "tier": 1, "chance": 6.67, "weightSource": "weights"}, {"text": "Allies in your Presence deal (25-29) to (39-45) added Attack Fire Damage", "tier": 1, "chance": 6.67, "weightSource": "weights"}, {"text": "Allies in your Presence deal (1-4) to (60-71) added Attack Lightning Damage", "tier": 1, "chance": 6.67, "weightSource": "weights"}, {"text": "Allies in your Presence deal (12-19) to (22-32) added Attack Physical Damage", "tier": 1, "chance": 6.67, "weightSource": "weights"}, {"text": "Allies in your Presence Regenerate (29.1-33) Life per second", "tier": 1, "chance": 6.67, "weightSource": "weights"}, {"text": "+(31-33) to Intelligence", "tier": 2, "chance": 5.33, "weightSource": "weights"}, {"text": "(35-38)% increased Spirit", "tier": 1, "chance": 5.33, "weightSource": "weights"}, {"text": "+(31-33) to Strength", "tier": 2, "chance": 5.33, "weightSource": "weights"}, {"text": "Allies in your Presence deal (90-104)% increased Damage", "tier": 2, "chance": 4, "weightSource": "weights"}, {"text": "Allies in your Presence have +(15-16)% to all Elemental Resistances", "tier": 2, "chance": 4, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-38)% increased Critical Hit Chance", "tier": 1, "chance": 4, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-39)% increased Critical Damage Bonus", "tier": 1, "chance": 4, "weightSource": "weights"}, {"text": "(18-22)% increased Mana Regeneration Rate", "tier": 1, "chance": 4, "weightSource": "weights"}, {"text": "35% reduced Attribute Requirements", "tier": 1, "chance": 4, "weightSource": "weights"}, {"text": "(56-60)% increased Spirit", "tier": 2, "chance": 4, "weightSource": "weights"}, {"text": "(66-80)% increased Presence Area of Effect", "tier": 1, "chance": 4, "weightSource": "weights"}, {"text": "Allies in your Presence have (14-16)% increased Attack Speed", "tier": 1, "chance": 2.67, "weightSource": "weights"}, {"text": "Allies in your Presence have (17-20)% increased Cast Speed", "tier": 1, "chance": 2.67, "weightSource": "weights"}, {"text": "(50-59)% increased Mana Regeneration Rate", "tier": 5, "chance": 2.67, "weightSource": "weights"}, {"text": "Minions have (41-45)% increased maximum Life", "tier": 2, "chance": 2.67, "weightSource": "weights"}]}, {"id": "perfect_exalted", "title": "Perfect Exalted Orb", "modCount": 21, "chance": 7.69, "attempts": 29, "oddsNote": "", "warning": "", "effect": "As Exalted, with a minimum modifier level of 50 - the final slam.", "prices": [{"short": "div", "amount": 3.4198}, {"short": "ex", "amount": 2306.03}, {"short": "chaos", "amount": 35.19}], "mods": [{"text": "Allies in your Presence deal (21-24) to (32-37) added Attack Cold Damage", "tier": 1, "chance": 7.69, "weightSource": "weights"}, {"text": "Allies in your Presence deal (25-29) to (39-45) added Attack Fire Damage", "tier": 1, "chance": 7.69, "weightSource": "weights"}, {"text": "Allies in your Presence deal (1-4) to (60-71) added Attack Lightning Damage", "tier": 1, "chance": 7.69, "weightSource": "weights"}, {"text": "Allies in your Presence deal (12-19) to (22-32) added Attack Physical Damage", "tier": 1, "chance": 7.69, "weightSource": "weights"}, {"text": "+(150-164) to maximum Mana", "tier": 5, "chance": 7.69, "weightSource": "weights"}, {"text": "Allies in your Presence Regenerate (29.1-33) Life per second", "tier": 1, "chance": 5.77, "weightSource": "weights"}, {"text": "+(31-33) to Intelligence", "tier": 2, "chance": 5.77, "weightSource": "weights"}, {"text": "(18-22)% increased Mana Regeneration Rate", "tier": 1, "chance": 5.77, "weightSource": "weights"}, {"text": "+(31-33) to Strength", "tier": 2, "chance": 5.77, "weightSource": "weights"}, {"text": "Allies in your Presence deal (90-104)% increased Damage", "tier": 2, "chance": 3.85, "weightSource": "weights"}, {"text": "Allies in your Presence have +(15-16)% to all Elemental Resistances", "tier": 2, "chance": 3.85, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-38)% increased Critical Hit Chance", "tier": 1, "chance": 3.85, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-39)% increased Critical Damage Bonus", "tier": 1, "chance": 3.85, "weightSource": "weights"}, {"text": "35% reduced Attribute Requirements", "tier": 1, "chance": 3.85, "weightSource": "weights"}, {"text": "(35-38)% increased Spirit", "tier": 1, "chance": 3.85, "weightSource": "weights"}, {"text": "(56-60)% increased Spirit", "tier": 2, "chance": 3.85, "weightSource": "weights"}, {"text": "(66-80)% increased Presence Area of Effect", "tier": 1, "chance": 3.85, "weightSource": "weights"}, {"text": "Allies in your Presence have (14-16)% increased Attack Speed", "tier": 1, "chance": 1.92, "weightSource": "weights"}, {"text": "Allies in your Presence have (17-20)% increased Cast Speed", "tier": 1, "chance": 1.92, "weightSource": "weights"}, {"text": "(50-59)% increased Mana Regeneration Rate", "tier": 5, "chance": 1.92, "weightSource": "weights"}, {"text": "Minions have (41-45)% increased maximum Life", "tier": 2, "chance": 1.92, "weightSource": "weights"}]}, {"id": "essence:Lesser Essence of the Infinite", "title": "Lesser Essence of the Infinite", "modCount": 0, "chance": null, "attempts": null, "oddsNote": "", "warning": "", "effect": "", "prices": [], "mods": []}, {"id": "essence:Lesser Essence of Command", "title": "Lesser Essence of Command", "modCount": 0, "chance": null, "attempts": null, "oddsNote": "", "warning": "", "effect": "", "prices": [], "mods": []}, {"id": "essence:Essence of the Infinite", "title": "Essence of the Infinite", "modCount": 0, "chance": null, "attempts": null, "oddsNote": "", "warning": "", "effect": "", "prices": [], "mods": []}]}, {"id": "replace", "title": "Заменить или снять мод", "total": 4, "methods": [{"id": "chaos", "title": "Chaos Orb", "modCount": 21, "chance": 7.8, "attempts": 29, "oddsNote": "", "warning": "", "effect": "Removes one random modifier and adds a new one (Rare items).", "prices": [{"short": "chaos", "amount": 1}, {"short": "ex", "amount": 65.5308}, {"short": "div", "amount": 0.0972}], "mods": [{"text": "+(150-164) to maximum Mana", "tier": 5, "chance": 7.8, "weightSource": "weights"}, {"text": "Allies in your Presence Regenerate (29.1-33) Life per second", "tier": 1, "chance": 7.09, "weightSource": "weights"}, {"text": "Allies in your Presence deal (21-24) to (32-37) added Attack Cold Damage", "tier": 1, "chance": 6.38, "weightSource": "weights"}, {"text": "Allies in your Presence deal (25-29) to (39-45) added Attack Fire Damage", "tier": 1, "chance": 6.38, "weightSource": "weights"}, {"text": "Allies in your Presence deal (1-4) to (60-71) added Attack Lightning Damage", "tier": 1, "chance": 6.38, "weightSource": "weights"}, {"text": "Allies in your Presence deal (12-19) to (22-32) added Attack Physical Damage", "tier": 1, "chance": 6.38, "weightSource": "weights"}, {"text": "+(31-33) to Intelligence", "tier": 2, "chance": 5.67, "weightSource": "weights"}, {"text": "+(31-33) to Strength", "tier": 2, "chance": 5.67, "weightSource": "weights"}, {"text": "Allies in your Presence deal (90-104)% increased Damage", "tier": 2, "chance": 4.96, "weightSource": "weights"}, {"text": "(35-38)% increased Spirit", "tier": 1, "chance": 4.96, "weightSource": "weights"}, {"text": "(56-60)% increased Spirit", "tier": 2, "chance": 4.96, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-38)% increased Critical Hit Chance", "tier": 1, "chance": 4.26, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-39)% increased Critical Damage Bonus", "tier": 1, "chance": 4.26, "weightSource": "weights"}, {"text": "Allies in your Presence have +(15-16)% to all Elemental Resistances", "tier": 2, "chance": 3.55, "weightSource": "weights"}, {"text": "35% reduced Attribute Requirements", "tier": 1, "chance": 3.55, "weightSource": "weights"}, {"text": "(50-59)% increased Mana Regeneration Rate", "tier": 5, "chance": 3.55, "weightSource": "weights"}, {"text": "Minions have (41-45)% increased maximum Life", "tier": 2, "chance": 3.55, "weightSource": "weights"}, {"text": "Allies in your Presence have (14-16)% increased Attack Speed", "tier": 1, "chance": 2.84, "weightSource": "weights"}, {"text": "Allies in your Presence have (17-20)% increased Cast Speed", "tier": 1, "chance": 2.84, "weightSource": "weights"}, {"text": "(66-80)% increased Presence Area of Effect", "tier": 1, "chance": 2.84, "weightSource": "weights"}, {"text": "(18-22)% increased Mana Regeneration Rate", "tier": 1, "chance": 2.13, "weightSource": "weights"}]}, {"id": "greater_chaos", "title": "Greater Chaos Orb", "modCount": 21, "chance": 8, "attempts": 28, "oddsNote": "", "warning": "", "effect": "As Chaos, with a minimum modifier level of 35.", "prices": [{"short": "ex", "amount": 200.524}, {"short": "chaos", "amount": 3.06}, {"short": "div", "amount": 0.2974}], "mods": [{"text": "+(150-164) to maximum Mana", "tier": 5, "chance": 8, "weightSource": "weights"}, {"text": "Allies in your Presence deal (21-24) to (32-37) added Attack Cold Damage", "tier": 1, "chance": 6.67, "weightSource": "weights"}, {"text": "Allies in your Presence deal (25-29) to (39-45) added Attack Fire Damage", "tier": 1, "chance": 6.67, "weightSource": "weights"}, {"text": "Allies in your Presence deal (1-4) to (60-71) added Attack Lightning Damage", "tier": 1, "chance": 6.67, "weightSource": "weights"}, {"text": "Allies in your Presence deal (12-19) to (22-32) added Attack Physical Damage", "tier": 1, "chance": 6.67, "weightSource": "weights"}, {"text": "Allies in your Presence Regenerate (29.1-33) Life per second", "tier": 1, "chance": 6.67, "weightSource": "weights"}, {"text": "+(31-33) to Intelligence", "tier": 2, "chance": 5.33, "weightSource": "weights"}, {"text": "(35-38)% increased Spirit", "tier": 1, "chance": 5.33, "weightSource": "weights"}, {"text": "+(31-33) to Strength", "tier": 2, "chance": 5.33, "weightSource": "weights"}, {"text": "Allies in your Presence deal (90-104)% increased Damage", "tier": 2, "chance": 4, "weightSource": "weights"}, {"text": "Allies in your Presence have +(15-16)% to all Elemental Resistances", "tier": 2, "chance": 4, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-38)% increased Critical Hit Chance", "tier": 1, "chance": 4, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-39)% increased Critical Damage Bonus", "tier": 1, "chance": 4, "weightSource": "weights"}, {"text": "(18-22)% increased Mana Regeneration Rate", "tier": 1, "chance": 4, "weightSource": "weights"}, {"text": "35% reduced Attribute Requirements", "tier": 1, "chance": 4, "weightSource": "weights"}, {"text": "(56-60)% increased Spirit", "tier": 2, "chance": 4, "weightSource": "weights"}, {"text": "(66-80)% increased Presence Area of Effect", "tier": 1, "chance": 4, "weightSource": "weights"}, {"text": "Allies in your Presence have (14-16)% increased Attack Speed", "tier": 1, "chance": 2.67, "weightSource": "weights"}, {"text": "Allies in your Presence have (17-20)% increased Cast Speed", "tier": 1, "chance": 2.67, "weightSource": "weights"}, {"text": "(50-59)% increased Mana Regeneration Rate", "tier": 5, "chance": 2.67, "weightSource": "weights"}, {"text": "Minions have (41-45)% increased maximum Life", "tier": 2, "chance": 2.67, "weightSource": "weights"}]}, {"id": "perfect_chaos", "title": "Perfect Chaos Orb", "modCount": 21, "chance": 7.69, "attempts": 29, "oddsNote": "", "warning": "", "effect": "As Chaos, with a minimum modifier level of 50.", "prices": [{"short": "ex", "amount": 5461.99}, {"short": "chaos", "amount": 83.35}, {"short": "div", "amount": 8.1001}], "mods": [{"text": "Allies in your Presence deal (21-24) to (32-37) added Attack Cold Damage", "tier": 1, "chance": 7.69, "weightSource": "weights"}, {"text": "Allies in your Presence deal (25-29) to (39-45) added Attack Fire Damage", "tier": 1, "chance": 7.69, "weightSource": "weights"}, {"text": "Allies in your Presence deal (1-4) to (60-71) added Attack Lightning Damage", "tier": 1, "chance": 7.69, "weightSource": "weights"}, {"text": "Allies in your Presence deal (12-19) to (22-32) added Attack Physical Damage", "tier": 1, "chance": 7.69, "weightSource": "weights"}, {"text": "+(150-164) to maximum Mana", "tier": 5, "chance": 7.69, "weightSource": "weights"}, {"text": "Allies in your Presence Regenerate (29.1-33) Life per second", "tier": 1, "chance": 5.77, "weightSource": "weights"}, {"text": "+(31-33) to Intelligence", "tier": 2, "chance": 5.77, "weightSource": "weights"}, {"text": "(18-22)% increased Mana Regeneration Rate", "tier": 1, "chance": 5.77, "weightSource": "weights"}, {"text": "+(31-33) to Strength", "tier": 2, "chance": 5.77, "weightSource": "weights"}, {"text": "Allies in your Presence deal (90-104)% increased Damage", "tier": 2, "chance": 3.85, "weightSource": "weights"}, {"text": "Allies in your Presence have +(15-16)% to all Elemental Resistances", "tier": 2, "chance": 3.85, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-38)% increased Critical Hit Chance", "tier": 1, "chance": 3.85, "weightSource": "weights"}, {"text": "Allies in your Presence have (35-39)% increased Critical Damage Bonus", "tier": 1, "chance": 3.85, "weightSource": "weights"}, {"text": "35% reduced Attribute Requirements", "tier": 1, "chance": 3.85, "weightSource": "weights"}, {"text": "(35-38)% increased Spirit", "tier": 1, "chance": 3.85, "weightSource": "weights"}, {"text": "(56-60)% increased Spirit", "tier": 2, "chance": 3.85, "weightSource": "weights"}, {"text": "(66-80)% increased Presence Area of Effect", "tier": 1, "chance": 3.85, "weightSource": "weights"}, {"text": "Allies in your Presence have (14-16)% increased Attack Speed", "tier": 1, "chance": 1.92, "weightSource": "weights"}, {"text": "Allies in your Presence have (17-20)% increased Cast Speed", "tier": 1, "chance": 1.92, "weightSource": "weights"}, {"text": "(50-59)% increased Mana Regeneration Rate", "tier": 5, "chance": 1.92, "weightSource": "weights"}, {"text": "Minions have (41-45)% increased maximum Life", "tier": 2, "chance": 1.92, "weightSource": "weights"}]}, {"id": "annulment", "title": "Orb of Annulment", "modCount": 0, "chance": null, "attempts": null, "oddsNote": "", "warning": "", "effect": "Removes one random modifier. Risky: it can strip the modifier you need.", "prices": [], "mods": []}]}, {"id": "improve", "title": "Улучшить существующее", "total": 2, "methods": [{"id": "quality", "title": "Arcanist's Etcher", "modCount": 0, "chance": null, "attempts": null, "oddsNote": "качество не бросает мод: оно множит характеристики предмета", "warning": "", "effect": "Raises the quality of wands, staves and sceptres: 1% quality per 1%, which improves the socketed skill.", "prices": [], "mods": []}, {"id": "divine", "title": "Divine Orb", "modCount": 0, "chance": null, "attempts": null, "oddsNote": "перебрасывает числа существующих модов, набор модов не меняет", "warning": "", "effect": "Rerolls the numeric values of existing modifiers; the modifier set is unchanged.", "prices": [], "mods": []}]}, {"id": "risky", "title": "Рискованное (необратимо)", "total": 1, "methods": [{"id": "vaal", "title": "Vaal Orb", "modCount": 0, "chance": null, "attempts": null, "oddsNote": "исход осквернения не публикуется: возможен и порча предмета", "warning": "One-way: the item becomes corrupted and cannot be crafted further. It can also lose modifiers or the whole craft, so use it only when you are ready to keep the result.", "effect": "Corrupts the item: adds a corrupted implicit, an extra socket or another effect (possibly bricking it). No further changes.", "prices": [], "mods": []}]}], "stage": {"id": "endgame", "label": "Эндгейм", "description": "Эндгейм: можно всё, включая необратимое — но только на предмете, который вы оставите."}, "split": {"known": true, "openPrefixes": 0, "openSuffixes": 2}, "techniques": [{"id": "homogenising_tag_hunt", "title": "Охота на тег: омен Homogenising + Exalted", "why": "Омен Homogenising заставляет Exalted добавить мод той же группы, что уже есть. Пока на выбранной стороне достижима одна группа, это фактически гарантированный мод. Важно: бонус учитывает группы ОБЕИХ сторон, поэтому сначала доводят одну сторону.", "source": "GhazzyTV, «How to GUARANTEE Modifiers», 87 тыс. просмотров — расшифровка", "leagueNote": "Видео от 2025-09-02, то есть эпоха 0.2/0.3 — заметно старше лиги 0.5.5. Что проверено: сам омен в 0.5.5 есть и работает (с 0.4.0 у него отключён ДРОП, копии действуют; продаётся на Currency Exchange). Чего в видео НЕТ: с 0.4 омен нельзя нафармить, поэтому его цена в свежей лиге другая, а конкретные ilvl и эссенции из ролика — того патча. Механику стоит считать рабочей, экономику — устаревшей.", "steps": [{"action": "Довести первую сторону", "what": "суффиксы или префиксы — но целиком", "risk": "недоделанная сторона добавит свои теги в пул"}, {"action": "Omen of Homogenising Exaltation + Exalted", "what": "мод нужной группы", "risk": "если группа не одна — не гарантия"}, {"action": "Повторять по слотам", "what": "второй и третий мод той же группы", "risk": "чем больше групп на предмете, тем шире пул"}]}, {"id": "desecration_wash", "title": "Очернение как «смывка»: добавить, снять, оставить нужное", "why": "Очернённый мод можно снять оменом Omen of Light, не трогая остальные. Отсюда техника: очернить, посмотреть, что предложили, оставить нужное или смыть и попробовать снова — при этом обычные моды остаются на месте.", "source": "GhazzyTV и Fubgun — расшифровки; модель раскрытия «3 из пула» уже в движке", "leagueNote": "Проверено по своду 0.5.5: Omen of Light, Omen of Abyssal Echoes и Omen of Sinistral/Dextral Necromancy в нём есть, лимит «один очернённый мод» движок уже учитывает. Источником служат видео, но опора — наши данные.", "steps": [{"action": "Кость + Well of Souls", "what": "три варианта очернённого мода на выбор", "risk": "слот очернения только один"}, {"action": "Omen of Abyssal Echoes", "what": "перекатить предложенную тройку", "risk": "ещё одна кость"}, {"action": "Omen of Light + Annulment", "what": "снять только очернённый мод", "risk": "без омена Annulment снимает случайный"}]}], "curriculum": [{"id": "read_item", "title": "Прочитать предмет: префиксы, суффиксы, свободные слоты", "text": "Первое, что делает опытный крафтер, — считает, сколько сторон занято и сколько открыто. Префикс и суффикс — разные стороны, и от них зависит, что вообще можно добавить. Пока это не прочитано, любой совет — угадывание.", "done": true}, {"id": "base_and_ilvl", "title": "База и уровень предмета решают, какой тир вообще возможен", "text": "Уровень предмета ограничивает максимальный тир мода: на низком ilvl лучший тир просто не выпадет, сколько ни плати. База задаёт, какие семейства модов вообще доступны. Это проверяют ДО первой валюты, потому что отменить это нельзя.", "done": true}, {"id": "cheap_tier", "title": "Дешёвая ступень Magic — единственный «перекат»", "text": "Полного реролла в PoE 2 нет. Пока предмет Magic, плохой старт выбрасывают и начинают заново — это дёшево. После Regal предмет Rare, и каждый следующий шаг уже стоит денег.", "done": false}, {"id": "lock_good", "title": "Regal только когда оба мода Magic годятся", "text": "Regal поднимает до Rare и сохраняет оба мода, добавляя третий случайный. Поэтому его применяют, когда терять нечего: оба мода уже хороши. Слать Regal на мусор — способ заплатить за мусор Rare.", "done": false}, {"id": "control_not_gamble", "title": "Управление вместо рулетки: эссенция, руна, омен", "text": "Эссенция ставит гарантированный мод. Руна — бесплатный гарантированный мод в сокет. Омен направляет следующую валюту: сторона, самый слабый мод, два мода сразу. Это дороже ставки, но это единственный способ получить нужное, а не надеяться.", "done": true}, {"id": "stop_point", "title": "Точка остановки: крафт против покупки", "text": "Перед каждым дорогим шагом считают, во что обойдётся крафт и сколько стоит готовый предмет. Если крафт дороже — его не начинают. Второе: заранее решают, какое состояние считается «достаточно хорошим», иначе вложение не заканчивается.", "done": true}, {"id": "irreversible_last", "title": "Необратимое — последним", "text": "Vaal и освящение закрывают предмет для крафта навсегда. Их делают, когда результат уже устраивает, и никогда — на предмете, который ещё собираются доделывать.", "done": true}]}},{"header": {"name": "Ужасный нарост", "base": "Rattling Sceptre"}, "properties": [{"label": "Дух", "value": "114"}], "mods": [], "flags": {}},{"league": "0.5.5 Forbidden Rites", "mainRule": "Предмет собирается постепенно: Normal → Magic → Rare. Полного переролла нет.", "caps": [{"title": "Один created-мод", "text": "Эссенция, сплав или руна — только один такой мод."}], "orbs": [{"name": "Exalted Orb", "does": "добавляет один мод", "when": "сторона свободна", "risk": "мод случайный"}], "omens": {"entries": [{"name": "Omen of Whittling", "does": "Annulment снимает слабейший мод", "why": "точечная правка"}]}, "mistakes": [{"text": "Тратить Exalted на предмет, который заменят через два акта."}], "loop": ["Ctrl+Q — захват", "сделайте шаг", "Ctrl+Q снова"], "genesisTree": {"location": "Монастырь Хранителей, к югу от начала Атласа", "goals": [{"id": "catalyst_any", "title": "Любой катализатор", "wombgift": "Lavish Wombgift", "chance": 0.15, "expectedBirths": 6.67}, {"id": "catalyst_refined", "title": "Refined-катализатор (ювелирка)", "wombgift": "Lavish Wombgift", "chance": 0.04, "expectedBirths": 25}, {"id": "refined_breach_ring", "title": "Refined Breach Ring", "wombgift": "Signet Wombgift", "chance": 0.005, "expectedBirths": 200}], "notes": ["С 0.5.0 катализаторы НЕ падают с монстров. Единственный источник — Genesis Tree."]}, "claimsChecked": {"checked": 8, "failed": 0, "total": 8}, "claims": [{"id": "scouring_orb", "verdict": "false", "title": "Орб Скуринга в PoE 2 не существует"}, {"id": "regal_locks_prefix", "verdict": "false", "title": "Regal не «фиксирует префикс»"}, {"id": "chaos_rerolls_all", "verdict": "false", "title": "Chaos в PoE 2 не перекатывает весь предмет"}, {"id": "essence_twice", "verdict": "false", "title": "Один created-слот, а не два"}, {"id": "vaal_reversible", "verdict": "false", "title": "Осквернение необратимо"}, {"id": "quality_free_slot", "verdict": "false", "title": "Качество не занимает слот"}, {"id": "divine_changes_mods", "verdict": "false", "title": "Divine меняет числа, а не набор модов"}, {"id": "exalted_safe", "verdict": "true", "title": "Exalted не трогает существующие моды"}]});showTab('methods');};</script>
+<script>
+window.addEventListener('load',function(){
+  function title(){var el=document.querySelector('#methods-view .detail-title');
+    return el?el.textContent.trim():'(none)';}
+  var rows=document.querySelectorAll('#methods-view .mrow');
+  var out=['rows='+rows.length,'first='+title()];
+  // Click the last row with the same name as the first quality method, then whatever follows.
+  var clicked=null;
+  for(var i=0;i<rows.length;i++){
+    if(!rows[i].className.match(/\bon\b/)){clicked=rows[i];break;}
+  }
+  if(clicked){
+    out.push('clicked='+clicked.textContent.trim().replace(/\s+/g,' '));
+    clicked.click();
+    out.push('after='+title());
+    var marked=document.querySelectorAll('#methods-view .mrow.on').length;
+    out.push('marked='+marked);
+  } else { out.push('clicked=none'); }
+  document.title=out.join(' | ');
+});
+</script>
+</body></html>

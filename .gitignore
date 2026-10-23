@@ -1,0 +1,47 @@
+﻿# Staged runtime (copied from the PoB2 checkout) and generated artefacts.
+runtime/
+SimpleGraphic/Screenshots/
+assets/fonts/*.ttf
+tools/cache/
+
+# Market MCP: public API responses (poe.ninja, poe2scout, trade site) cached for a few
+# minutes so repeated questions do not hammer the endpoints. Never worth committing.
+mcp-market/.cache/
+
+# Market MCP: the working list (что взял в работу, по какой цене продал) - personal state.
+mcp-market/.state/
+
+# Build output. It used to be committed, which put 367 binaries in the tree (the Avalonia stack among
+# them) and made every build show up as a change; the sources are the thing worth keeping.
+bin/
+obj/
+
+# The panel's runtime scratch: the protocol files passed between the panel and the engine, the last
+# capture, the engine's error log and the overlay's own log. All of it is rewritten on every run.
+src/*.flag
+src/last_item.txt
+src/last_advice.txt
+src/headless_error.txt
+src/headless_request.lua
+src/mcp_serve_*
+src/mcp_request.lua
+src/mcp_response.json
+src/mcp_response.probe.json
+src/probe_*.txt
+src/probe_hold.txt
+src/prefs.lua
+src/session.log
+src/boot_error.txt
+src/capture_source.txt
+src/captured_at.txt
+src/ocr_item.txt
+src/runtime_error.txt
+src/test_results.txt
+src/test_trace.txt
+# The step loop's memory of the last item, and the coach's diagnostic dump. Both are rewritten on every
+# capture and every test run, so tracking them left the tree permanently dirty - and a commit could carry
+# one player's item state into the repository. The engine treats a missing file as "no memory of a previous
+# step", so neither has to exist for anything to work.
+src/craft_memory.lua
+src/coach_diag.txt
+*.log

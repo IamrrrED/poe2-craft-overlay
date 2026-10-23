@@ -1,0 +1,1672 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Fontin; src: url('fontin-regular-webfont.ttf'); }
+:root {
+  /* Warm charcoal instead of black, and one accent: the panel is read for hours, so the contrast stays calm
+     and only gold marks the thing to DO. Pure black plus saturated gold tires the eye in minutes. */
+  --text:#e7e0d1; --dim:#a29a8a; --magic:#b3b0ff; --gold:#dcb96a; --good:#93ddaa; --bad:#ff9d8a;
+  --panel:#17150f; --card:#1d1a13; --card2:#221e16; --line:#3a3427; --line2:#4a412f;
+  --radius:8px; --radius-sm:6px; --gap:8px;
+  --sans:"Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+}
+/* Fontin stays for game-flavoured headings (item name, step title, route goal); body text switches to a clean
+   sans at a slightly larger size. All-serif Latin at 12 px is what made the card feel like a wall. */
+html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--panel);
+  font-family:var(--sans); font-size:12.5px; line-height:1.45; color:var(--text); user-select:none;
+  -webkit-font-smoothing:antialiased; }
+.panel { box-sizing:border-box; width:100%; height:100%; padding:8px 14px 20px; overflow-y:auto; }
+.title { position:relative; display:flex; justify-content:space-between; font-size:13px; color:var(--gold);
+  /* No room reserved for a close button any more: the form's title bar carries the ordinary one. */
+  margin-bottom: 2px; }
+/* The league sits in the middle of the header: absolute across the full width, so it is centred
+   in the panel rather than pushed to the right edge by the name on the left. */
+.title #league { position:absolute; left:0; right:0; text-align:center; }
+/* The RU/EN switch sits at the right of the header and is drawn with the tabs' own look, so it reads as a
+   control and not as a label; the active half takes the same "on" style as the tabs. */
+.lang-switch { display:flex; gap:4px; align-items:center; }
+.lang-switch .tab { font-size:10px; padding:1px 5px; }
+.tabs { display:flex; gap:10px; margin:6px 0 4px; font-size:12px; }
+.tab { cursor:pointer; color:var(--dim); padding:2px 8px; border:1px solid #3a3629; border-radius:3px; }
+.tab.on { color:var(--gold); border-color:var(--gold); }
+.name { font-size:16px; color:#dcd6c8; margin:2px 0 1px; }
+.base { font-size:12px; color:#cfc9bb; }
+.prop { font-size:12px; margin:1px 0; }
+.dim { color:var(--dim); }
+.mod { font-size:12.5px; color:var(--magic); margin:2px 0; }
+.review-box { border:1px solid #3a3629; background:#1d1a12; padding:6px 10px; margin:6px 0; }
+.review { font-size:12.5px; margin:1px 0; }
+.review.ok { color:var(--good); }
+.review.warn { color:#e0b979; }
+.review.no { color:var(--bad); }
+.review.new { color:var(--gold); font-size:12.5px; margin:6px 0; }
+.rev-add { font-size:12px; color:var(--good); }
+.rev-del { font-size:12px; color:var(--bad); }
+.step { border:1px solid #5c5330; background:#221f16; padding:8px 10px; margin:8px 0 6px; }
+.step-title { font-size:16px; color:var(--gold); margin-bottom:3px; }
+.step-cost { font-size:12px; color:var(--good); margin-bottom:4px; }
+/* The route: goal, three steps, stop. It is the plan a person would give, and it sits above the single step
+   because "what am I doing and when do I stop" is the question a beginner actually has. */
+.routes { border:1px solid #3a3733; border-radius:7px; padding:7px 9px; margin:2px 0 8px; background:#1e1d1b; }
+.route-goal { font-size:12.5px; margin-bottom:4px; }
+.route-steps { margin:0; padding-left:18px; font-size:12px; }
+.route-steps li { margin-bottom:2px; }
+.route-rules { color:#7f7a72; font-size:10.5px; margin-left:6px; }
+/* The state check: a limit of the item, not advice about a currency, so it reads as a quiet note with a dot. */
+.statecheck { font-size:11.5px; color:#cbb98f; padding:4px 0 4px 18px; position:relative; margin:4px 0; }
+.statecheck::before { content:""; position:absolute; left:5px; top:9px; width:6px; height:6px; border-radius:50%;
+  background:#cbb98f; opacity:.7; }
+.route-stop { font-size:12px; color:#c9a227; margin-top:3px; }
+/* The two "human" lines: the money for the whole attempt, and the threshold where buying wins. They are why
+   the card reads like advice instead of a probability table, so they sit between the odds and the action. */
+.step-budget { font-size:12px; opacity:.9; margin-bottom:2px; }
+/* The player's situation strip: trade or SSF, the currency at hand, and whether the item is for wearing or
+   for sale. Every human crafter asks these before advising, so they sit at the top of the step card. */
+.ctxstrip { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin:2px 0 6px; font-size:11.5px; }
+.ctxlbl { color:#8a857e; margin-left:6px; }
+.ctxbtn { background:#242322; border:1px solid #363432; color:#e6e2da; border-radius:5px; padding:1px 7px; font-size:11.5px; cursor:pointer; }
+.ctxbtn.on { background:#3a3630; border-color:#d9b45a; color:#d9b45a; }
+.ctxbudget { width:64px; background:#242322; border:1px solid #363432; color:#e6e2da; border-radius:5px; padding:1px 5px; font-size:11.5px; }
+.ctxnote { font-size:11.5px; color:#8a857e; margin-bottom:2px; }
+.step-stop { font-size:12px; color:var(--bad); margin-bottom:5px; }
+.step-why { font-size:12.5px; margin-bottom:5px; }
+.lesson { margin:4px 0 6px; font-size:12px; }
+.lesson summary { cursor:pointer; color:var(--gold); }
+.lesson-text { color:#bdb59f; padding:3px 0 0 10px; border-left:1px solid #3a3727; margin-top:3px; }
+.branch { font-size:12px; margin:2px 0; }
+.ok { color:var(--good); }
+.no { color:var(--bad); }
+.loop { font-size:12px; color:var(--gold); margin-top:6px; }
+h3 { font-size:12.5px; color:var(--gold); margin:8px 0 3px; font-weight:normal; }
+.warn { font-size:12px; margin:2px 0; color:#e0b979; }
+.guide-row { font-size:12px; margin:2px 0; }
+.empty-title { font-size:17px; color:var(--gold); margin:10px 0 8px; }
+.empty-step { font-size:13px; margin:3px 0; }
+.empty-hint { font-size:11.5px; color:var(--dim); margin-top:10px; line-height:1.5; }
+.method { display:flex; gap:8px; font-size:12px; line-height:1.5; }
+.method span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.method span:first-child { flex:2.1; }
+.method span:nth-child(2) { flex:1.5; }
+.method.head { color:var(--gold); font-size:11px; }
+.method.head span { flex:1; }
+.method.head span:first-child { flex:2.1; }
+.method.head span:nth-child(2) { flex:1.5; }
+.methods { max-height:140px; overflow-y:auto; }
+/* Where a chance comes from matters more than the chance itself: Craft of Exile weights are
+   measured on this very base, the Path of Building fallback is an estimate. */
+/* flex:0 0 auto keeps the badge at its own width: the columns stretch, the mark must not. */
+.src { flex:0 0 auto; font-size:10px; margin-left:4px; }
+.src.exact { color:var(--good); }
+.src.estimate { color:#e0b979; }
+/* The same two colours in the legend line, where the words are text and not a badge. */
+.legend { font-size:10px; }
+.legend.exact { color:var(--good); }
+.legend.estimate { color:#e0b979; }
+.hint { position:absolute; bottom:4px; left:16px; font-size:10px; color:#6f6857; }
+/* The methods picker: the method list stays on the left so choosing never scrolls the choices away. */
+.split { display:grid; grid-template-columns:330px 1fr; gap:10px; align-items:start; }
+.split .left { border-right:1px solid #2c2a1e; padding-right:8px; }
+.mrow { display:flex; justify-content:space-between; gap:6px; padding:3px 6px;
+  border-bottom:1px solid #221f16; cursor:pointer; }
+.mrow:hover { background:#22221a; }
+.mrow.on { background:#2b2a1d; border-left:2px solid var(--gold); }
+.detail-title { color:#e7dfc8; font-size:13px; }
+.modgrid { display:grid; grid-template-columns:2.6fr .5fr .6fr .8fr; gap:6px; }
+.modgrid.head { color:#7d765f; font-size:10px; text-transform:uppercase; border-bottom:1px solid #3a3727; }
+.modgrid > div { padding:2px 0; border-bottom:1px solid #23211a; font-size:11px; }
+.actions { display:flex; gap:6px; margin-top:8px; }
+.controls { display:flex; gap:4px; align-items:center; margin:6px 0; flex-wrap:wrap; }
+.controls button.on { background:#3a3520; border-color:#8a7a3c; color:#f5eeda; }
+/* A method the player's stage says to save: dimmed and marked, never hidden. */
+.mrow.saved { opacity:.62; }
+.save-mark { font-size:10px; color:#e0b979; border:1px solid #5a4a1c; border-radius:2px;
+  padding:0 3px; margin-left:4px; }
+.mode-switch { float:right; }
+.mode-switch button { font-size:10px; padding:0 5px; margin-left:3px; }
+.mode-switch button.on { background:#3a3520; border-color:#8a7a3c; color:#f5eeda; }
+.more { margin-top:10px; border-top:1px solid #33301f; padding-top:6px; }
+.more summary { cursor:pointer; color:var(--gold); font-size:12px; }
+.howto { font-size:12px; color:#bdb59f; margin-top:10px; padding:8px 10px; border:1px solid #33301f; background:#1e1e17; line-height:1.55; }
+.howto b { color:var(--gold); font-weight:normal; }
+.stage-line { font-size:11.5px; color:#9a8d70; margin:0 0 4px; }
+.stage-line b { color:var(--gold); font-weight:normal; }
+.stage-switch { font-size:10.5px; color:#7d765f; margin:0 0 6px; }
+.stage-switch button { font-size:10.5px; padding:1px 6px; }
+.technique { margin:6px 0; border:1px solid #33301f; padding:5px 8px; background:#1e1e17; }
+.technique summary { cursor:pointer; color:var(--gold); font-size:12px; }
+.tech-step { font-size:11.5px; margin:4px 0 0 8px; color:#bdb59f; }
+.tech-step b { color:#d8c98d; font-weight:normal; }
+.league-note { font-size:10.5px; color:#c9a86a; margin-top:4px; border-left:2px solid #5a4a1c; padding-left:6px; }
+.technique.done summary { color:#8fce8f; }
+/* ===== theme layer ================================================================================
+   A deliberate override layer rather than a hundred small edits: the markup carries years of rules, and the
+   goal here is a coherent look (cards, rhythm, one accent) without hunting every selector. Nothing below adds
+   or hides information - it only changes how it reads. */
+.panel {
+  padding:10px 16px 22px;
+  background:
+    radial-gradient(1200px 320px at 50% -160px, rgba(220,185,106,.07), transparent 70%),
+    radial-gradient(700px 300px at 90% 110%, rgba(120,110,90,.05), transparent 70%);
+  scrollbar-width:thin; scrollbar-color:var(--line2) transparent;
+}
+.panel::-webkit-scrollbar { width:8px; }
+.panel::-webkit-scrollbar-thumb { background:var(--line2); border-radius:4px; }
+.panel::-webkit-scrollbar-track { background:transparent; }
+
+.title { font-family:Fontin, Georgia, serif; font-size:12.5px; letter-spacing:.2px; color:var(--dim);
+  border-bottom:1px solid var(--line); padding-bottom:6px; margin-bottom:0; }
+.title #league { color:var(--gold); }
+
+/* Tabs read as controls: pill shape, hover feedback, and the active one gets the accent underline. */
+.tabs { gap:6px; margin:8px 0 6px; }
+.tab { font-size:11.5px; padding:3px 11px; border-radius:999px; border:1px solid var(--line);
+  background:rgba(255,255,255,.02); transition:background .12s ease, border-color .12s ease, color .12s ease; }
+.tab:hover { border-color:var(--line2); color:var(--text); }
+.tab.on { color:#1a1710; background:var(--gold); border-color:var(--gold); font-weight:600; }
+.lang-switch .tab { border-radius:var(--radius-sm); }
+
+.name { font-family:Fontin, Georgia, serif; font-size:17px; letter-spacing:.3px; color:#f2ecdd;
+  margin:8px 0 2px; }
+.base { color:var(--dim); font-size:11.5px; letter-spacing:.2px; }
+
+/* Cards: warm surface, hairline border, one-pixel inner light so they feel raised rather than drawn. */
+.step, .routes, .review-box, .technique {
+  border:1px solid var(--line); border-radius:var(--radius); background:linear-gradient(180deg, var(--card2), var(--card));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035), 0 1px 2px rgba(0,0,0,.25);
+  padding:10px 12px; margin:10px 0;
+}
+.step-title { font-family:Fontin, Georgia, serif; font-size:16.5px; color:var(--gold); margin-bottom:4px; }
+h3 { font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--dim); font-weight:600;
+  margin:12px 0 5px; }
+
+/* The route is the headline of the card, so it gets the accent border and numbered steps as circles. */
+.routes { border-color:rgba(220,185,106,.35); padding:10px 12px 9px;
+  background:linear-gradient(180deg, rgba(220,185,106,.07), var(--card) 60%); }
+.route-goal { font-family:Fontin, Georgia, serif; font-size:13.5px; margin-bottom:6px; color:var(--text); }
+.route-goal b { color:var(--gold); font-weight:600; letter-spacing:.02em; }
+.route-steps { list-style:none; margin:0; padding:0; counter-reset:rstep; }
+.route-steps li { counter-increment:rstep; position:relative; padding-left:26px; margin:0 0 5px; font-size:12.5px; }
+.route-steps li::before {
+  content:counter(rstep); position:absolute; left:0; top:0; width:17px; height:17px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center; font-size:10.5px; font-weight:600;
+  color:var(--gold); border:1px solid rgba(220,185,106,.5); background:rgba(220,185,106,.08);
+}
+.route-rules { display:inline-block; margin-left:7px; padding:0 5px; border-radius:4px; font-size:10px;
+  letter-spacing:.04em; color:#9c9382; background:rgba(255,255,255,.05); }
+.route-stop { margin-top:7px; padding:6px 9px; border-left:2px solid var(--gold); border-radius:0 5px 5px 0;
+  background:rgba(220,185,106,.06); color:#e4d7b6; font-size:12px; }
+/* No glyph here: the WebView font set has no guaranteed stop-square, and a tofu box would look like a bug.
+   The gold left border already marks the line. */
+
+/* The context strip becomes a segmented control, which reads as a setting rather than a row of links. */
+.ctxstrip { gap:0; margin:6px 0 8px; padding:2px; border:1px solid var(--line); border-radius:999px;
+  background:rgba(0,0,0,.18); width:max-content; max-width:100%; }
+.ctxlbl { color:var(--dim); font-size:11px; padding:0 6px; margin:0; }
+.ctxbtn { border:0; background:transparent; border-radius:999px; padding:2px 10px; font-size:11.5px;
+  color:var(--dim); cursor:pointer; transition:background .12s ease, color .12s ease; }
+.ctxbtn:hover { color:var(--text); }
+.ctxbtn.on { background:rgba(220,185,106,.16); color:var(--gold); font-weight:600; }
+.ctxbudget { background:transparent; border:0; border-left:1px solid var(--line); border-radius:0;
+  padding:2px 8px; color:var(--text); font-family:var(--sans); font-size:11.5px; outline:none; }
+.ctxnote { font-size:11.5px; color:var(--dim); border-left:2px solid var(--line2); padding-left:7px; margin:3px 0; }
+
+/* Numbers that matter: money and chances in tabular figures, so columns line up and no number looks noisy. */
+.step-cost { font-size:12px; color:var(--good); font-variant-numeric:tabular-nums; }
+.step-budget, .step-stop, .step-why, .review, .prop, .mod { font-variant-numeric:tabular-nums; }
+.step-stop { color:var(--bad); border-left:2px solid rgba(255,157,138,.5); padding-left:7px; }
+.step-why { color:#d7cfbe; }
+
+/* Mods read as a list of lines, not as prose: a soft bullet keeps the column tidy. */
+.mod { position:relative; padding-left:11px; color:var(--magic); }
+.mod::before { content:"·"; position:absolute; left:2px; color:#6d6555; }
+
+/* Controls: one shape everywhere, with a focus ring that matches the accent. */
+button, input { font-family:var(--sans); }
+button {
+  font-size:11.5px; padding:4px 11px; border-radius:var(--radius-sm); cursor:pointer;
+  color:var(--text); background:linear-gradient(180deg, #2a2519, #211d14); border:1px solid var(--line2);
+  transition:border-color .12s ease, transform .06s ease, background .12s ease;
+}
+button:hover { border-color:var(--gold); color:#fff6df; }
+button:active { transform:translateY(1px); }
+input[type=text], input:not([type]) { font-size:12px; padding:4px 9px; border-radius:var(--radius-sm);
+  border:1px solid var(--line2); background:#14120d; color:var(--text); outline:none; }
+input:focus { border-color:var(--gold); box-shadow:0 0 0 2px rgba(220,185,106,.15); }
+
+.lesson summary, .technique summary { color:var(--gold); }
+.lesson summary::marker, .technique summary::marker { color:var(--gold); }
+.branch { border-radius:var(--radius-sm); padding:5px 9px; margin:5px 0; font-size:12px;
+  border-left:2px solid var(--line2); background:rgba(255,255,255,.025); }
+.branch.no { border-left-color:var(--bad); }
+.branch.ok { border-left-color:var(--good); }
+.dim { color:var(--dim); }
+.loop { color:var(--dim); font-size:11.5px; margin-top:7px; }
+
+/* Respect the system setting: no transitions for anyone who asked the OS for less motion. */
+/* A little life, without noise: a faint grain so the large flat areas are not dead, a short rise when a block
+   appears so the card does not snap, and small coin badges so money reads at a glance instead of as words. */
+body::before {
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.035;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");
+}
+.step, .routes, .review-box { animation:rise .18s ease-out both; }
+@keyframes rise { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+.coin { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:5px; vertical-align:-1px;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.06); }
+@media (prefers-reduced-motion: reduce) {
+  * { transition:none !important; animation:none !important; }
+  body::before { display:none; }
+}
+</style></head>
+<body><div class="panel">
+  <div class="title"><span id="panel-title"></span><span id="league"></span><span class="lang-switch">
+    <span class="tab" id="lang-ru" onclick="chooseLanguage('ru')">RU</span>
+    <span class="tab" id="lang-en" onclick="chooseLanguage('en')">EN</span>
+  </span></div>
+  <div class="tabs">
+    <div class="tab on" id="tab-step" onclick="showTab('step')"></div>
+    <div class="tab" id="tab-methods" onclick="showTab('methods')"></div>
+    <div class="tab" id="tab-guide" onclick="showTab('guide')"></div>
+  </div>
+  <div id="step-view"></div>
+  <div id="methods-view" style="display:none"></div>
+  <div id="guide-view" style="display:none"></div>
+  <div class="hint" id="panel-hint"></div>
+</div><script>
+// ---- chrome text -------------------------------------------------------------------------------------
+// Every word of the page's own chrome lives in this table, in both languages: the header, the tabs, the
+// empty card, the buttons, the section headings and the sentences wrapped around the engine's answers.
+// Text that arrives from the Lua engine (item names, step titles, why lines, warnings, methods, the whole
+// reference) is ALREADY localised there and is deliberately absent here: the host re-asks the engine for
+// its text rather than translating the payload on this side.
+var LANG='ru';
+var T={
+  ru:{
+    // header, tabs, footer
+    title:'PoE2 Craft — помощник',
+    tabStep:'Шаг',
+    tabMethods:'Способы',
+    tabGuide:'Справочник',
+    footHint:'Ctrl+Q захват · F7 скрыть · F9 клики · F10 выход',
+    // the empty card
+    emptyTitle:'Панель ждёт предмет',
+    emptyStep1:'1. В игре наведите курсор на предмет.',
+    emptyStep2:'2. Нажмите <b>Ctrl+Q</b> — оверлей сам скопирует предмет и покажет разбор.',
+    emptyStep3:'3. Сделайте предложенный шаг и нажмите <b>Ctrl+Q</b> снова: помощник сравнит моды до и после.',
+    emptyHint:'Панель ничего не делает сама и не мешает игре: она появляется по Ctrl+Q и прячется через 30 секунд. '
+      +'F7 — скрыть, F9 — перехват кликов, F10 — выход. Справочник по крафту — на вкладке «Справочник».',
+    // the how-to block
+    howtoTitle:'Как пользоваться',
+    howto1:'1. Наведите курсор на предмет в инвентаре и нажмите <b>Ctrl+Q</b>.<br>',
+    howto2:'2. Вкладка <b>Шаг</b> — что сделать следующим и почему. После действия снова <b>Ctrl+Q</b>, '
+      +'чтобы помощник увидел результат.<br>',
+    howto3:'3. Вкладка <b>Способы</b> — все доступные пути; выберите нужный и посмотрите его моды и цену.<br>',
+    howto4:'4. <b>Справочник</b> — правила, известные ловушки и проверка утверждений из чужих гайдов.<br>',
+    howto5:'5. Кнопка <b>Узнать цену</b> на шаге сравнивает крафт с рынком.',
+    methodsEmptyHint:'Наведите курсор на предмет и нажмите <b>Ctrl+Q</b> — появятся все способы.',
+    // engine health
+    engineErrorAnswered:'Движок ответил ошибкой: ',
+    engineErrorSilent:'Движок не ответил: ',
+    engineErrorTail:' Предмет сохранён в src\\last_item.txt — пришлите его, и ошибку можно будет починить.',
+    emptyAnswer:'пустой ответ',
+    // what changed between two captures
+    reviewNew:'Новый предмет: прошлый шаг забыт, начинаем этот крафт с начала.',
+    reviewProgress:'Прошлый шаг сработал — модов стало больше.',
+    reviewNothing:'Прошлый шаг ничего не изменил — значит, он не применился.',
+    reviewLoss:'Модов стало меньше: что-то потерялось.',
+    reviewSwap:'Один мод заменился другим, а не добавился.',
+    reviewAdded:'+ добавилось: ',
+    reviewRemoved:'− исчезло: ',
+    reviewSame:'не изменилось модов: ',
+    reviewBefore:' · было ',
+    reviewAfter:', стало ',
+    reviewPrevious:'Прошлый шаг: ',
+    // reliability marks
+    exact:'точно',
+    mixed:'смеш.',
+    estimate:'оценка',
+    exactTitle:'точные веса Craft of Exile',
+    estimateTitle:'оценка по тегам (Path of Building)',
+    stepBadgeTitle:'надёжность шанса у этого способа',
+    // the word after a price: the currency keys come from the engine, the words are ours
+    // rarity words of the item, as the trade line prints them
+    rarity_normal:'обычный',
+    rarity_magic:'волшебный',
+    rarity_rare:'редкий',
+    rarity_unique:'уникальный',
+    unit_chaos:'хаоса',
+    unit_exalted:'возвышения',
+    unit_divine:'божественных',
+    // methods and chances, next to the step
+    stepMethodsHead:'СПОСОБЫ И ШАНСЫ',
+    appliesPrefix:'Подходит способов: ',
+    ofWord:' из ',
+    legendExact:' — веса Craft of Exile для этой базы, ',
+    legendEstimate:' — по тегам (Path of Building).',
+    methodWord:'Способ',
+    chanceWord:'Шанс',
+    priceWord:'Цена',
+    attemptsColumn:'Попыток до 90%',
+    // the picker: list and detail
+    openPrefixes:'Свободно: префиксов ',
+    openSuffixes:', суффиксов ',
+    modsShort:' мод.',
+    noMethods:'Для этого предмета сейчас нет доступных способов.',
+    detailPick:'Выберите способ слева — справа появятся его моды, цена и кнопки.',
+    chancePrefix:'шанс ',
+    pricePrefix:'цена ',
+    toNinetyPrefix:'до 90% ',
+    attemptsSuffix:' попыток',
+    filterPlaceholder:'поиск по моду',
+    tierWord:'Тир',
+    nameWord:'Имя',
+    sortDesc:'убыв. ↓',
+    sortAsc:'возр. ↑',
+    tierAtMostPrefix:'тир ≤ ',
+    anyTier:'любой тир',
+    modWord:'Мод',
+    sourceWord:'Источник',
+    noModsForFilter:'Под этот фильтр модов нет.',
+    shownPrefix:'Показано ',
+    shownTail:' — остальные подгрузятся при прокрутке.',
+    shownAllPrefix:'Показаны все ',
+    shownAllTail:' мод. этого способа.',
+    noModPick:'Этот способ не выбирает мод: он меняет характеристики предмета.',
+    doneButton:'Выполнено',
+    failedButton:'Не получилось',
+    savedMark:'копить',
+    // advanced techniques and the mentor's course
+    techniquesHead:'ПРОДВИНУТЫЕ ТЕХНИКИ ДЛЯ ЭТОГО ПРЕДМЕТА',
+    riskPrefix:'риск: ',
+    sourcePrefix:'Источник: ',
+    curriculumHead:'КУРС НАСТАВНИКА: ',
+    curriculumTail:' уже понятно по этому предмету',
+    // the stage the player is in
+    stagePrefix:'Стадия: ',
+    stageCampaign:'кампания',
+    stageEarly:'ранний эндгейм',
+    stageEndgame:'эндгейм',
+    // reporting what happened
+    fallbackMethod:'способ',
+    confirmDone:'Отмечено как выполненное: ',
+    confirmDoneTail:'. Теперь нажмите Ctrl+Q на предмете — помощник сравнит моды.',
+    confirmFailed:'Отмечено как «не получилось»: ',
+    confirmFailedTail:'. Во вкладке «Способы» откройте блок отмены: там указано, чем можно освободить '
+      +'префикс или суффикс и с каким шансом. Затем Ctrl+Q на предмете.',
+    openMethodsHint:'Откройте вкладку «Способы», чтобы выбрать другой путь.',
+    // craft or buy
+    craftOrBuyHead:'СТОИТ ЛИ ЭТО КРАФТИТЬ',
+    expectedPrefix:' — ожидаемо ~',
+    expectedMiddle:' хаоса за ',
+    costFor90Prefix:', до 90 % хватает ~',
+    costFor90Tail:' хаоса',
+    noCost:'Стоимость посчитать не удалось: нет цен на нужные компоненты.',
+    unknownPrice:': цену не знаю — в снимке нет «',
+    closingQuote:'»',
+    tradeSearch:'Что искать в трейде, чтобы сравнить:',
+    itemLevelPrefix:' · уровень предмета ',
+    tierSpaced:'тир ',
+    buyPlaceholder:'цена готового в хаосе, из трейда',
+    compareButton:'Сравнить',
+    autoPriceTitle:'Спросить трейд: та же база и те же моды',
+    priceButton:'Узнать цену',
+    calculating:'Считаю…',
+    askingTrade:'Спрашиваю трейд…',
+    nothingToCompare:'Сравнить не с чем: стоимость крафта для этого предмета неизвестна.',
+    // the step card
+    noStep:'Шаг не определён',
+    lessonTitle:'Что за этим стоит',
+    ifSuccess:'Если получилось: ',
+    ifFail:'Если не то: ',
+    afterStep:'После шага: скопируйте предмет снова (Ctrl+C) и нажмите Ctrl+Q.',
+    stateTakenHead:'ЧТО УЖЕ ЗАНЯТО',
+    openSlotsPrefix:'Свободно слотов: ',
+    openSlotsTail:' (какой из них префикс, а какой суффикс, по этому тексту не определить)',
+    craftedSlot:'Созданный слот: ',
+    taken:'занят',
+    open:'свободен',
+    desecratedSlot:'  ·  Осквернённый слот: ',
+    modifiablePrefix:'Мод можно менять: ',
+    modifiableNo:'НЕТ — предмет закрыт',
+    yes:'да',
+    corruptedLine:'ПРЕДМЕТ ОСКВЕРНЁН — изменения невозможны',
+    warningsHead:'НА ЧТО НЕ НАСТУПАТЬ',
+    itemHead:'ПРЕДМЕТ',
+    corruptedFlag:'Осквернено',
+    sanctifiedFlag:'Освящено — крафт недоступен',
+    fracturedFlag:'Расколотый предмет — моды не меняются',
+    // beginner mode
+    beginnerButton:'Новичок',
+    everythingButton:'Всё',
+    showAllPrefix:'Показать всё: ',
+    warningsShort:' предупр.',
+    hiddenTaken:'что занято',
+    hiddenItem:'предмет',
+    hiddenMethods:'способы',
+    leaguePrefix:'лига: ',
+    // the reference tab
+    bySources:' — по открытым источникам',
+    mainRuleHead:'ГЛАВНОЕ ПРАВИЛО',
+    capsHead:'ДВА ПОТОЛКА 0.5',
+    currenciesHead:'ВАЛЮТЫ: ЧТО ДЕЛАЕТ И ЧЕМ РИСКУЕШЬ',
+    whenPrefix:'Когда: ',
+    riskGuide:' Риск: ',
+    omensHead:'ОМЭНЫ: УПРАВЛЕНИЕ ВМЕСТО РУЛЕТКИ',
+    whyPrefix:'Зачем: ',
+    mistakesHead:'ОШИБКИ НОВИЧКА',
+    loopHead:'ЦИКЛ РАБОТЫ',
+    births:' рождений',
+    claimsHead:'ПРОВЕРИТЬ УТВЕРЖДЕНИЕ',
+    claimIntro:'Введите то, что прочитали в гайде или услышали в видео — помощник сверит это с правилами, '
+      +'по которым сам советует.',
+    claimPlaceholder:'например: Regal фиксирует префикс',
+    checkButton:'Проверить',
+    claimChecking:'Проверяю…',
+    knownTraps:'Известные ловушки',
+    trapsCheckedTail:' проверяются по данным движка',
+    noAnswer:'Ответа нет.',
+    routeGoal:'Цель: ',
+    routeRulesTitle:'подтверждено правилами: ',
+    routeMore:'Ещё маршрутов: ',
+    nothingToCheck:'Проверить нечем: ',
+    correctPrefix:'Верно: ',
+    wrongPrefix:'Неверно: ',
+    verifiedMark:' · <b>проверено по данным движка</b>',
+    manualMark:' · записано вручную, данными не проверяется',
+    openTradeSearch:'Открыть этот поиск в трейде',
+    ctxModeLabel:'где крафчу:',
+    ctxModeTrade:'лига',
+    ctxModeSsf:'SSF',
+    ctxGoalLabel:'предмет:',
+    ctxGoalSell:'на продажу',
+    ctxGoalWear:'носить',
+    ctxBudgetLabel:'валюты есть, хаоса:',
+    unpricedSummaryA:'ещё методов без цены: ',
+    unpricedSummaryB:' — цены компонентов пока нет в снимке (это не ошибка), подробности в «Показать всё»'
+  },
+  en:{
+    // header, tabs, footer
+    title:'PoE2 Craft — assistant',
+    openTradeSearch:'Open this search on the trade site',
+    ctxModeLabel:'crafting in:',
+    ctxModeTrade:'league',
+    ctxModeSsf:'SSF',
+    ctxGoalLabel:'the item is:',
+    ctxGoalSell:'for sale',
+    ctxGoalWear:'to wear',
+    ctxBudgetLabel:'currency at hand, chaos:',
+    unpricedSummaryA:'methods without a price: ',
+    unpricedSummaryB:' - their components are not in the price snapshot yet (not an error); details under Show everything',
+    tabStep:'Step',
+    tabMethods:'Methods',
+    tabGuide:'Reference',
+    footHint:'Ctrl+Q capture · F7 hide · F9 clicks · F10 quit',
+    // the empty card
+    emptyTitle:'The panel is waiting for an item',
+    emptyStep1:'1. In game, hover an item with the cursor.',
+    emptyStep2:'2. Press <b>Ctrl+Q</b> — the overlay copies the item itself and shows the breakdown.',
+    emptyStep3:'3. Do the suggested step and press <b>Ctrl+Q</b> again: the assistant compares the modifiers '
+      +'before and after.',
+    emptyHint:'The panel does nothing on its own and does not get in the game’s way: it appears on Ctrl+Q and '
+      +'hides after 30 seconds. F7 — hide, F9 — click capture, F10 — quit. The crafting reference is on the '
+      +'Reference tab.',
+    // the how-to block
+    howtoTitle:'How to use it',
+    howto1:'1. Hover an item in the inventory and press <b>Ctrl+Q</b>.<br>',
+    howto2:'2. The <b>Step</b> tab — what to do next and why. After the action press <b>Ctrl+Q</b> again so '
+      +'the assistant sees the result.<br>',
+    howto3:'3. The <b>Methods</b> tab — every available route; pick one and look at its modifiers and '
+      +'price.<br>',
+    howto4:'4. <b>Reference</b> — the rules, the known traps and a check of claims from other people’s '
+      +'guides.<br>',
+    howto5:'5. The <b>Check price</b> button on a step compares the craft with the market.',
+    methodsEmptyHint:'Hover an item and press <b>Ctrl+Q</b> — every method appears.',
+    // engine health
+    engineErrorAnswered:'The engine answered with an error: ',
+    engineErrorSilent:'The engine did not answer: ',
+    engineErrorTail:' The item is saved in src\\last_item.txt — send it and the error can be fixed.',
+    emptyAnswer:'empty answer',
+    // what changed between two captures
+    reviewNew:'New item: the previous step is forgotten, this craft starts from the beginning.',
+    reviewProgress:'The previous step worked — there are more modifiers now.',
+    reviewNothing:'The previous step changed nothing — so it did not apply.',
+    reviewLoss:'There are fewer modifiers: something was lost.',
+    reviewSwap:'One modifier replaced another instead of being added.',
+    reviewAdded:'+ added: ',
+    reviewRemoved:'− removed: ',
+    reviewSame:'unchanged modifiers: ',
+    reviewBefore:' · before ',
+    reviewAfter:', after ',
+    reviewPrevious:'Previous step: ',
+    // reliability marks
+    exact:'exact',
+    mixed:'mixed',
+    estimate:'estimate',
+    exactTitle:'exact Craft of Exile weights',
+    estimateTitle:'estimate by tags (Path of Building)',
+    stepBadgeTitle:'reliability of the chance for this method',
+    // the word after a price: the currency keys come from the engine, the words are ours
+    // rarity words of the item, as the trade line prints them
+    rarity_normal:'normal',
+    rarity_magic:'magic',
+    rarity_rare:'rare',
+    rarity_unique:'unique',
+    unit_chaos:'chaos',
+    unit_exalted:'exalted',
+    unit_divine:'divine',
+    // methods and chances, next to the step
+    stepMethodsHead:'METHODS AND CHANCES',
+    appliesPrefix:'Methods that apply: ',
+    ofWord:' of ',
+    legendExact:' — Craft of Exile weights for this base, ',
+    legendEstimate:' — by tags (Path of Building).',
+    methodWord:'Method',
+    chanceWord:'Chance',
+    priceWord:'Price',
+    attemptsColumn:'Tries to 90%',
+    // the picker: list and detail
+    openPrefixes:'Open: prefixes ',
+    openSuffixes:', suffixes ',
+    modsShort:' mods',
+    noMethods:'There are no available methods for this item right now.',
+    detailPick:'Pick a method on the left — its modifiers, price and buttons appear on the right.',
+    chancePrefix:'chance ',
+    pricePrefix:'price ',
+    toNinetyPrefix:'to 90% ',
+    attemptsSuffix:' tries',
+    filterPlaceholder:'search modifiers',
+    tierWord:'Tier',
+    nameWord:'Name',
+    sortDesc:'desc. ↓',
+    sortAsc:'asc. ↑',
+    tierAtMostPrefix:'tier ≤ ',
+    anyTier:'any tier',
+    modWord:'Modifier',
+    sourceWord:'Source',
+    noModsForFilter:'No modifiers match this filter.',
+    shownPrefix:'Showing ',
+    shownTail:' — the rest loads as you scroll.',
+    shownAllPrefix:'All ',
+    shownAllTail:' modifiers of this method are shown.',
+    noModPick:'This method does not pick a modifier: it changes the item’s properties.',
+    doneButton:'Done',
+    failedButton:'Failed',
+    savedMark:'save',
+    // advanced techniques and the mentor's course
+    techniquesHead:'ADVANCED TECHNIQUES FOR THIS ITEM',
+    riskPrefix:'risk: ',
+    sourcePrefix:'Source: ',
+    curriculumHead:'MENTOR COURSE: ',
+    curriculumTail:' already clear from this item',
+    // the stage the player is in
+    stagePrefix:'Stage: ',
+    stageCampaign:'campaign',
+    stageEarly:'early endgame',
+    stageEndgame:'endgame',
+    // reporting what happened
+    fallbackMethod:'method',
+    confirmDone:'Marked as done: ',
+    confirmDoneTail:'. Now press Ctrl+Q on the item — the assistant compares the modifiers.',
+    confirmFailed:'Marked as failed: ',
+    confirmFailedTail:'. On the Methods tab open the undo block: it says what can free a prefix or a suffix '
+      +'and with what chance. Then Ctrl+Q on the item.',
+    openMethodsHint:'Open the Methods tab to pick another route.',
+    // craft or buy
+    craftOrBuyHead:'IS THIS WORTH CRAFTING',
+    expectedPrefix:' — expected ~',
+    expectedMiddle:' chaos for ',
+    costFor90Prefix:', ~',
+    costFor90Tail:' chaos covers 90 %',
+    noCost:'The cost could not be computed: there are no prices for the needed components.',
+    unknownPrice:': I do not know the price — the snapshot has no ',
+    closingQuote:'',
+    tradeSearch:'What to search on the trade site to compare:',
+    itemLevelPrefix:' · item level ',
+    tierSpaced:'tier ',
+    buyPlaceholder:'price of the finished item in chaos, from the trade site',
+    compareButton:'Compare',
+    autoPriceTitle:'Ask the trade site: same base and the same modifiers',
+    priceButton:'Check price',
+    calculating:'Calculating…',
+    askingTrade:'Asking the trade site…',
+    nothingToCompare:'Nothing to compare with: the craft cost of this item is unknown.',
+    // the step card
+    noStep:'No step defined',
+    lessonTitle:'What is behind this',
+    ifSuccess:'If it worked: ',
+    ifFail:'If it went wrong: ',
+    afterStep:'After the step: copy the item again (Ctrl+C) and press Ctrl+Q.',
+    stateTakenHead:'WHAT IS ALREADY TAKEN',
+    openSlotsPrefix:'Open slots: ',
+    openSlotsTail:' (which of them is a prefix and which a suffix cannot be told from this text)',
+    craftedSlot:'Crafted slot: ',
+    taken:'taken',
+    open:'open',
+    desecratedSlot:'  ·  Desecrated slot: ',
+    modifiablePrefix:'Modifier can be changed: ',
+    modifiableNo:'NO — the item is locked',
+    yes:'yes',
+    corruptedLine:'THE ITEM IS DESECRATED — no changes are possible',
+    warningsHead:'WHAT NOT TO TOUCH',
+    itemHead:'THE ITEM',
+    corruptedFlag:'Desecrated',
+    sanctifiedFlag:'Sanctified — crafting is unavailable',
+    fracturedFlag:'Fractured item — its modifiers cannot be changed',
+    // beginner mode
+    beginnerButton:'Beginner',
+    everythingButton:'Everything',
+    showAllPrefix:'Show everything: ',
+    warningsShort:' warnings',
+    hiddenTaken:'what is taken',
+    hiddenItem:'the item',
+    hiddenMethods:'methods',
+    leaguePrefix:'league: ',
+    // the reference tab
+    bySources:' — from open sources',
+    mainRuleHead:'THE MAIN RULE',
+    capsHead:'TWO CAPS 0.5',
+    currenciesHead:'CURRENCIES: WHAT IT DOES AND WHAT YOU RISK',
+    whenPrefix:'When: ',
+    riskGuide:' Risk: ',
+    omensHead:'OMENS: CONTROL INSTEAD OF A DICE ROLL',
+    whyPrefix:'Why: ',
+    mistakesHead:'BEGINNER MISTAKES',
+    loopHead:'THE WORK CYCLE',
+    births:' births',
+    claimsHead:'CHECK A CLAIM',
+    claimIntro:'Type what you read in a guide or heard in a video — the assistant checks it against the rules '
+      +'it advises by.',
+    claimPlaceholder:'for example: Regal locks a prefix',
+    checkButton:'Check',
+    claimChecking:'Checking…',
+    knownTraps:'Known traps',
+    trapsCheckedTail:' are verified against engine data',
+    noAnswer:'No answer.',
+    routeGoal:'Goal: ',
+    routeRulesTitle:'confirmed by rules: ',
+    routeMore:'Other routes matching: ',
+    nothingToCheck:'Nothing to check it with: ',
+    correctPrefix:'Correct: ',
+    wrongPrefix:'Wrong: ',
+    verifiedMark:' · <b>verified against engine data</b>',
+    manualMark:' · written down by hand, not verified against data'
+  }
+};
+function t(key){
+  var table=T[LANG]||T.ru;
+  var value=table[key];
+  return value===undefined?(T.ru[key]===undefined?key:T.ru[key]):value;
+}
+
+// The header, the tabs, the footer hint and the empty card are markup, not data, so they are drawn from the
+// table above instead of being written into the HTML: that is what leaves the page with no Russian of its own.
+function paintChrome(){
+  var title=document.getElementById('panel-title');
+  if(title){title.textContent=t('title');}
+  var stepTab=document.getElementById('tab-step');
+  if(stepTab){stepTab.textContent=t('tabStep');}
+  var methodsTab=document.getElementById('tab-methods');
+  if(methodsTab){methodsTab.textContent=t('tabMethods');}
+  var guideTab=document.getElementById('tab-guide');
+  if(guideTab){guideTab.textContent=t('tabGuide');}
+  var hint=document.getElementById('panel-hint');
+  if(hint){hint.textContent=t('footHint');}
+  paintLangSwitch();
+}
+
+// The switch shows which language the HOST has chosen, not which one was clicked: it is painted here and from
+// setLanguage only, so a failed round trip can never leave the switch and the text disagreeing.
+function paintLangSwitch(){
+  var ru=document.getElementById('lang-ru');
+  var en=document.getElementById('lang-en');
+  if(ru){ru.className='tab'+(LANG==='ru'?' on':'');}
+  if(en){en.className='tab'+(LANG==='en'?' on':'');}
+}
+
+// The card that waits for a capture: chrome only, no engine data in it.
+function renderEmptyStep(){
+  return '<div class="empty-title">'+t('emptyTitle')+'</div>'
+    +'<div class="empty-step">'+t('emptyStep1')+'</div>'
+    +'<div class="empty-step">'+t('emptyStep2')+'</div>'
+    +'<div class="empty-step">'+t('emptyStep3')+'</div>'
+    +'<div class="empty-hint">'+t('emptyHint')+'</div>';
+}
+
+function esc(v){return String(v===null||v===undefined?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function lines(text,c){return String(text||'').split('\n').filter(r=>r.trim()!=='').map(r=>'<div class="'+(c||'prop')+'">'+esc(r)+'</div>').join('');}
+function showTab(which){
+  document.getElementById('step-view').style.display = which==='step' ? '' : 'none';
+  document.getElementById('methods-view').style.display = which==='methods' ? '' : 'none';
+  document.getElementById('guide-view').style.display = which==='guide' ? '' : 'none';
+  document.getElementById('tab-step').className = 'tab'+(which==='step'?' on':'');
+  document.getElementById('tab-methods').className = 'tab'+(which==='methods'?' on':'');
+  document.getElementById('tab-guide').className = 'tab'+(which==='guide'?' on':'');
+  if(which==='methods'){paintMethods();}
+}
+// What happened between the previous capture and this one. Without this the player cannot tell a
+// step that failed from a step that was never applied.
+function renderReview(review){
+  if(!review){return '';}
+  if(!review.sameItem){
+    return '<div class="review new">'+t('reviewNew')+'</div>';
+  }
+  const v=review.verdict||'nothing';
+  const changes=review.changes||{added:[],removed:[]};
+  const words={
+    progress:t('reviewProgress'),
+    nothing:t('reviewNothing'),
+    loss:t('reviewLoss'),
+    swap:t('reviewSwap')
+  }[v]||'';
+  const rows=[];
+  rows.push('<div class="review '+(v==='progress'?'ok':(v==='nothing'?'warn':'no'))+'">'+esc(words)+'</div>');
+  if((changes.added||[]).length){rows.push('<div class="rev-add">'+t('reviewAdded')+esc(changes.added.join('; '))+'</div>');}
+  if((changes.removed||[]).length){rows.push('<div class="rev-del">'+t('reviewRemoved')+esc(changes.removed.join('; '))+'</div>');}
+  rows.push('<div class="dim">'+t('reviewSame')+esc(changes.same||0)+t('reviewBefore')+esc((review.before||[]).length)+t('reviewAfter')+esc((review.after||[]).length)+'</div>');
+  rows.push('<div class="dim">'+t('reviewPrevious')+esc(review.previousStep||'—')+'</div>');
+  return '<div class="review-box">'+rows.join('')+'</div>';
+}
+// An engine that ANSWERED with an error is not an engine that stayed silent, and the two need different
+// advice: a silent engine means it is not running, an erroring one means the item broke the analysis.
+// Saying "did not answer" for both sent the customer looking at the wrong thing.
+window.showEngineError=function(m){
+  var text=String(m==null?'':m);
+  var answered=/^\s*\.?[\\/]?.*\.lua:\d+:/.test(text)||/error|ошиб|bad argument/i.test(text);
+  var head=answered?t('engineErrorAnswered'):t('engineErrorSilent');
+  var tail=answered?t('engineErrorTail'):'';
+  document.getElementById('step-view').innerHTML='<div class="prop no">'+esc(head+text+tail)+'</div>';
+};
+
+// The rarity word of an item ("MAGIC" from the engine), written the way the panel's language writes it.
+// A word the table does not know is shown as it came.
+// The player's situation: every human crafter asks before advising. Kept in the page (so it survives a restart)
+// and sent to the engine, which re-answers the card with it - in SSF there is no trade price to stop against,
+// and a budget caps how many attempts are worth starting.
+var ctx=(function(){
+  try{return {mode:localStorage.getItem('poe2craft.mode')||'trade',
+              goal:localStorage.getItem('poe2craft.goal')||'sell',
+              budget:Number(localStorage.getItem('poe2craft.budget')||0)};}
+  catch(e){return {mode:'trade',goal:'sell',budget:0};}
+})();
+function setContext(key,value){
+  ctx[key]=value;
+  try{localStorage.setItem('poe2craft.'+key,String(value));}catch(e){}
+  if(window.chrome&&window.chrome.webview){
+    window.chrome.webview.postMessage('context:mode='+ctx.mode+';goal='+ctx.goal+';budget='+ctx.budget);
+  }
+}
+function contextStrip(step){
+  var html='<div class="ctxstrip">'
+    +'<span class="ctxlbl">'+t('ctxModeLabel')+'</span>'
+    +'<button class="ctxbtn'+(ctx.mode==='trade'?' on':'')+'" data-ctx="mode:trade">'+t('ctxModeTrade')+'</button>'
+    +'<button class="ctxbtn'+(ctx.mode==='ssf'?' on':'')+'" data-ctx="mode:ssf">'+t('ctxModeSsf')+'</button>'
+    +'<span class="ctxlbl">'+t('ctxGoalLabel')+'</span>'
+    +'<button class="ctxbtn'+(ctx.goal==='sell'?' on':'')+'" data-ctx="goal:sell">'+t('ctxGoalSell')+'</button>'
+    +'<button class="ctxbtn'+(ctx.goal==='wear'?' on':'')+'" data-ctx="goal:wear">'+t('ctxGoalWear')+'</button>'
+    +'<span class="ctxlbl">'+t('ctxBudgetLabel')+'</span>'
+    +'<input class="ctxbudget" type="number" min="0" step="0.01" value="'+(ctx.budget>0?ctx.budget:'')+'" data-ctxinput="budget">'
+    +'</div>';
+  [step&&step.budgetReply,step&&step.modeNote,step&&step.goalNote].forEach(function(line){
+    if(line){html+='<div class="ctxnote">'+esc(line)+'</div>';}
+  });
+  return html;
+}
+document.addEventListener('click',function(event){
+  var button=event.target.closest?event.target.closest('.ctxbtn'):null;
+  if(!button){return;}
+  var pair=(button.getAttribute('data-ctx')||'').split(':');
+  if(pair.length===2){setContext(pair[0],pair[1]);}
+});
+document.addEventListener('change',function(event){
+  if(!event.target||event.target.getAttribute('data-ctxinput')!=='budget'){return;}
+  setContext('budget',Number(event.target.value)||0);
+});
+
+function rarityWord(word){
+  var key='rarity_'+String(word||'').toLowerCase();
+  var written=t(key);
+  return written===key ? String(word||'') : written;
+}
+
+// The word after a price. Falling back to the key keeps an unknown currency readable instead of blank.
+function costUnit(key){
+  var word=t('unit_'+key);
+  return word===('unit_'+key) ? key : word;
+}
+
+// Rouble-free rule: a price arrives as a set of currencies ("0.46 exalted + 0.01 chaos"). Only the
+// largest one survives, because the table is narrow and the rest is noise.
+function formatCost(raw){
+  if(raw===undefined||raw===null){return '';}
+  if(typeof raw!=='object'){return String(raw);}
+  const parts=Object.keys(raw).map(k=>({key:k,value:Number(raw[k])}))
+    .filter(p=>!Number.isNaN(p.value)&&p.value>=0.005)
+    .sort((a,b)=>b.value-a.value);
+  // The engine sends the currency KEY ('chaos'): the number is its business, the word after it is
+  // ours, so it goes through the same chrome table as every other word.
+  return parts.length ? parts[0].value.toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+' '+costUnit(parts[0].key) : '—';
+}
+
+// The mark that says whether a chance can be trusted. "coe" means the weights were measured on
+// Craft of Exile for this exact base; anything else is the tag-based estimate from Path of
+// Building. The engine decides this (weightSource); the panel only draws it.
+function sourceBadge(source, title){
+  const hint = title ? ' title="'+esc(title)+'"' : '';
+  if(source==='coe'){return '<span class="src exact"'+hint+'>'+t('exact')+'</span>';}
+  if(source==='mixed'){return '<span class="src estimate"'+hint+'>'+t('mixed')+'</span>';}
+  if(source){return '<span class="src estimate"'+hint+'>'+t('estimate')+'</span>';}
+  return '';
+}
+
+// The reliability of the recommended step, taken from the method the step names. An exalt step and
+// the "Exalted Orb" row of the engine's summary are the same craft, so they must not disagree.
+function stepSourceBadge(summary, step){
+  if(!summary||!step){return '';}
+  const key=String(step.currency||'').toLowerCase();
+  if(!key){return '';}
+  const row=((summary.entries)||[]).filter(r=>r&&r.applicable===true)
+    .filter(r=>String(r.label||'').toLowerCase()===key||String(r.method||'').toLowerCase()===key)[0];
+  return row ? sourceBadge(row.weightSource, t('stepBadgeTitle')) : '';
+}
+
+// Every crafting method the engine priced for this item, next to the step it recommends. The
+// reliability mark lives in the chance column, so a number is never read without its source.
+function renderStepMethods(summary){
+  const all=(summary&&summary.entries)||[];
+  const rows=all.filter(r=>r&&r.applicable===true);
+  if(!rows.length){return '';}
+  const out=[];
+  out.push('<h3>'+t('stepMethodsHead')+'</h3>');
+  out.push('<div class="prop dim">'+t('appliesPrefix')+esc(summary.applicable)+t('ofWord')+esc(summary.total)
+    +'. <span class="legend exact">'+t('exact')+'</span>'+t('legendExact')
+    +'<span class="legend estimate">'+t('estimate')+'</span>'+t('legendEstimate')+'</div>');
+  out.push('<div class="methods">');
+  out.push('<div class="method head"><span>'+t('methodWord')+'</span><span>'+t('chanceWord')
+    +'</span><span>'+t('priceWord')+'</span><span>'+t('attemptsColumn')+'</span></div>');
+  rows.forEach(r=>{
+    const chance=(r.chancePerAttempt===undefined||r.chancePerAttempt===null)
+      ? '' : (Number(r.chancePerAttempt)*100).toFixed(2)+'%';
+    const cost=formatCost(r.perAttempt!==undefined&&r.perAttempt!==null?r.perAttempt:r.cost);
+    const attempts=(r.attemptsFor90===undefined||r.attemptsFor90===null)?'':String(r.attemptsFor90);
+    out.push('<div class="method"><span>'+esc(r.label||r.method||'')+'</span>'
+      +'<span>'+esc(chance)+sourceBadge(r.weightSource, r.weightSource==='coe'
+        ? t('exactTitle') : t('estimateTitle'))+'</span>'
+      +'<span>'+esc(cost)+'</span><span>'+esc(attempts)+'</span></div>');
+  });
+  out.push('</div>');
+  return out.join('');
+}
+
+// ---- the methods picker (variant 3: method list left, modifiers right) -------------------------
+// The engine computes every method that applies, its chance, its price in three currencies and its whole
+// modifier pool. This screen arranges that data and nothing else, so its numbers cannot drift from the
+// recommendation on the other tab. Choosing a method fills the right pane instead of replacing the list,
+// which is what keeps the choices on screen while a long modifier list is read.
+var methodsData=null;      // payload of the last capture
+var methodsSel=null;       // the chosen method (an object, so the detail pane needs no lookup)
+var methodsSort='chance';  // chance | price | name | mods  (methods) / chance | tier | name  (modifiers)
+var methodsDesc=true;      // descending by default: best chance first
+var methodsFilter='';      // text filter over modifiers
+var methodsMinTier=0;      // 0 = any tier
+var methodsShown=20;       // modifiers drawn so far: the rest follow the scrollbar
+
+function priceText(rows){
+  // Cheapest first, as the customer asked; four decimals keep a thousandth from printing as "0".
+  if(!rows||!rows.length){return '—';}
+  return rows.map(function(r){
+    var amount=Number(r.amount);
+    var text=amount>=1?String(Math.round(amount*100)/100):String(Math.round(amount*10000)/10000);
+    return text+' '+esc(r.short||r.id);
+  }).join(' · ');
+}
+
+function sortMethods(list){
+  var arr=(list||[]).slice();
+  arr.sort(function(a,b){
+    var av,bv;
+    if(methodsSort==='price'){av=(a.price&&a.price[0])?a.price[0].amount:Infinity;
+      bv=(b.price&&b.price[0])?b.price[0].amount:Infinity;}
+    else if(methodsSort==='name'){av=String(a.title||'').toLowerCase();bv=String(b.title||'').toLowerCase();
+      return methodsDesc?(av<bv?1:(av>bv?-1:0)):(av<bv?-1:(av>bv?1:0));}
+    else if(methodsSort==='mods'){av=Number(a.modCount)||0;bv=Number(b.modCount)||0;}
+    else {av=Number(a.chance!==undefined&&a.chance!==null?a.chance:a.chancePerAttempt)||0;
+      bv=Number(b.chance!==undefined&&b.chance!==null?b.chance:b.chancePerAttempt)||0;}
+    return methodsDesc?bv-av:av-bv;
+  });
+  return arr;
+}
+
+function sortMods(list){
+  var arr=(list||[]).slice();
+  arr.sort(function(a,b){
+    var av,bv;
+    if(methodsSort==='tier'){av=Number(a.tier)||999;bv=Number(b.tier)||999;}
+    else if(methodsSort==='name'){av=String(a.text||'').toLowerCase();bv=String(b.text||'').toLowerCase();
+      return methodsDesc?(av<bv?1:(av>bv?-1:0)):(av<bv?-1:(av>bv?1:0));}
+    else {av=Number(a.chance)||0;bv=Number(b.chance)||0;}
+    return methodsDesc?bv-av:av-bv;
+  });
+  return arr;
+}
+
+function visibleMods(method){
+  var all=sortMods(method&&method.mods).filter(function(mod){
+    if(methodsMinTier>0&&(Number(mod.tier)||999)>methodsMinTier){return false;}
+    if(!methodsFilter){return true;}
+    return String(mod.text||'').toLowerCase().indexOf(methodsFilter)>=0;
+  });
+  return all;
+}
+
+function methodRow(method,current){
+  var chance=(method.chance!==undefined&&method.chance!==null)
+    ? Number(method.chance).toFixed(2)+'%'
+    : (method.chancePerAttempt?(Number(method.chancePerAttempt)*100).toFixed(2)+'%':'—');
+  // The chosen row is marked, not only tinted: two methods can legitimately share a name (a catalyst
+  // can be both the quality step and a league option), and with only a background the click looked like
+  // it had done nothing.
+  //
+  // A method the player's stage says to save is dimmed with a mark instead of disappearing: hiding it
+  // would look like a bug and teach nothing, and he should learn WHY he is saving it.
+  var saved=(method.allowedAtStage===false);
+  var suffix=saved?' <span class="save-mark" title="'+esc(method.stageNote||'')+'">'+t('savedMark')+'</span>':'';
+  return '<div class="mrow'+(current?' on':'')+(saved?' saved':'')
+    +'" onclick="selectMethod(\''+esc(method.id)+'\')">'
+    +'<span>'+(current?'✓ ':'')+esc(method.title)+suffix+'</span>'
+    +'<span class="dim">'+esc(chance)+'</span></div>';
+}
+
+function renderMethodsList(){
+  var out=[];
+  var split=methodsData.split||{};
+  out.push('<div class="dim">'+t('openPrefixes')+esc(split.openPrefixes!==null?split.openPrefixes:'?')
+    +t('openSuffixes')+esc(split.openSuffixes!==null?split.openSuffixes:'?')+'</div>');
+  (methodsData.groups||[]).forEach(function(group){
+    var rows=sortMethods(group.methods);
+    if(!rows.length){return;}
+    var total=rows.reduce(function(sum,row){return sum+(Number(row.modCount)||0);},0);
+    out.push('<h3>'+esc(group.title)+' <span class="dim">('+rows.length+' · '+total+t('modsShort')+')</span></h3>');
+    rows.forEach(function(method){out.push(methodRow(method,methodsSel&&methodsSel.id===method.id));});
+  });
+  if(!(methodsData.groups||[]).length){
+    out.push('<div class="prop dim">'+t('noMethods')+'</div>');
+  }
+  return out.join('');
+}
+
+// The advanced, state-dependent sequences: what an experienced crafter knows that a table of rules cannot
+// derive. They come with the payload already filtered to this item's state, so anything shown here applies.
+function renderTechniques(){
+  var list=(methodsData&&methodsData.techniques)||[];
+  if(!list.length){return '';}
+  var out=['<h3>'+t('techniquesHead')+' ('+list.length+')</h3>'];
+  list.forEach(function(technique){
+    out.push('<details class="technique"><summary>'+esc(technique.title)+'</summary>'
+      +'<div class="lesson-text">'+esc(technique.why||'')+'</div>'
+      +(technique.steps||[]).map(function(step,index){
+        return '<div class="tech-step"><b>'+(index+1)+'. '+esc(step.action||'')+'</b> — '
+          +esc(step.what||'')+'<br><span class="dim">'+t('riskPrefix')+esc(step.risk||'')+'</span></div>';
+      }).join('')
+      +'<div class="dim" style="margin-top:4px">'+t('sourcePrefix')+esc(technique.source||'')+'</div>'
+      +(technique.leagueNote?'<div class="league-note">'+esc(technique.leagueNote)+'</div>':'')
+      +'</details>');
+  });
+  return out.join('');
+}
+
+function renderMethodDetail(){
+  var method=methodsSel;
+  if(!method){
+    return '<div class="empty-step">'+t('detailPick')+'</div>';
+  }
+  var out=[];
+  out.push('<div class="detail-title">'+esc(method.title)+'</div>');
+  var bits=[];
+  if(method.modCount){bits.push(esc(method.modCount)+t('modsShort'));}
+  var chance=(method.chance!==undefined&&method.chance!==null)
+    ? Number(method.chance).toFixed(2)+'%'
+    : (method.chancePerAttempt?(Number(method.chancePerAttempt)*100).toFixed(2)+'%':null);
+  if(chance){bits.push(t('chancePrefix')+esc(chance));}
+  var price=priceText(method.price);
+  if(price!=='—'){bits.push(t('pricePrefix')+esc(price));}
+  if(method.attemptsFor90){bits.push(t('toNinetyPrefix')+esc(method.attemptsFor90)+t('attemptsSuffix'));}
+  if(bits.length){out.push('<div class="dim">'+bits.join(' · ')+'</div>');}
+  if(method.effect){out.push('<div class="prop dim">'+esc(method.effect)+'</div>');}
+  if(method.oddsNote){out.push('<div class="prop dim">'+esc(method.oddsNote)+'</div>');}
+  if(method.warning){out.push('<div class="branch no">'+esc(method.warning)+'</div>');}
+
+  if((method.mods||[]).length){
+    out.push('<div class="controls">'
+      +'<input id="method-filter" placeholder="'+t('filterPlaceholder')+'" value="'+esc(methodsFilter)+'" '
+      +'oninput="methodsFilter=this.value.toLowerCase();methodsShown=20;paintMethods()">'
+      +'<button class="'+(methodsSort==='chance'?'on':'')+'" onclick="setSort(\'chance\')">'+t('chanceWord')+'</button>'
+      +'<button class="'+(methodsSort==='tier'?'on':'')+'" onclick="setSort(\'tier\')">'+t('tierWord')+'</button>'
+      +'<button class="'+(methodsSort==='name'?'on':'')+'" onclick="setSort(\'name\')">'+t('nameWord')+'</button>'
+      +'<button onclick="flipOrder()">'+(methodsDesc?t('sortDesc'):t('sortAsc'))+'</button>'
+      +'<button onclick="cycleTier()">'+(methodsMinTier?(t('tierAtMostPrefix')+methodsMinTier):t('anyTier'))+'</button>'
+      +'</div>');
+    var all=visibleMods(method);
+    var rows=all.slice(0,methodsShown);
+    out.push('<div class="modgrid head"><div>'+t('modWord')+'</div><div>'+t('tierWord')+'</div>'
+      +'<div>'+t('chanceWord')+'</div><div>'+t('sourceWord')+'</div></div>');
+    if(!rows.length){
+      out.push('<div class="prop dim">'+t('noModsForFilter')+'</div>');
+    }
+    rows.forEach(function(mod){
+      out.push('<div class="modgrid"><div>'+esc(mod.text)+'</div><div>T'+esc(mod.tier||'?')+'</div>'
+        +'<div>'+esc(mod.chance)+'%</div>'
+        +'<div>'+sourceBadge(mod.weightSource, mod.weightSource==='coe'
+          ? t('exactTitle') : t('estimateTitle'))+'</div></div>');
+    });
+    if(rows.length<all.length){
+      out.push('<div class="prop dim">'+t('shownPrefix')+rows.length+t('ofWord')+all.length
+        +t('shownTail')+'</div>');
+    } else {
+      out.push('<div class="prop dim">'+t('shownAllPrefix')+all.length+t('shownAllTail')+'</div>');
+    }
+  } else if(method.oddsUnknown===false||method.oddsNote){
+    out.push('<div class="prop dim">'+t('noModPick')+'</div>');
+  }
+  out.push('<div class="actions">'
+    +'<button onclick="confirmStep(\'done\')">'+t('doneButton')+'</button>'
+    +'<button onclick="confirmStep(\'failed\')">'+t('failedButton')+'</button>'
+    +'</div>');
+  return out.join('');
+}
+
+// The mentor's course, on the item in hand: a lesson the item already demonstrates is ticked, so the player
+// reads what is still new instead of the whole list.
+function renderCurriculum(){
+  var list=(methodsData&&methodsData.curriculum)||[];
+  if(!list.length){return '';}
+  var done=0;
+  list.forEach(function(lesson){if(lesson.done){done=done+1;}});
+  var out=['<h3>'+t('curriculumHead')+done+t('ofWord')+list.length+t('curriculumTail')+'</h3>'];
+  list.forEach(function(lesson,index){
+    out.push('<details class="technique'+(lesson.done?' done':'')+'">'
+      +'<summary>'+(lesson.done?'✓ ':'')+(index+1)+'. '+esc(lesson.title)+'</summary>'
+      +'<div class="lesson-text">'+esc(lesson.text)+'</div></details>');
+  });
+  return out.join('');
+}
+
+function renderMethodsView(){
+  if(!methodsData){
+    return '<div class="empty-title">'+t('emptyTitle')+'</div>'
+      +'<div class="empty-step">'+t('methodsEmptyHint')+'</div>'
+      +'<div class="howto">'
+      +'<b>'+t('howtoTitle')+'</b><br>'
+      +t('howto1')
+      +t('howto2')
+      +t('howto3')
+      +t('howto4')
+      +t('howto5')
+      +'</div>';
+  }
+  // The stage line answers "why are half of these marked save": a beginner needs that rule stated once,
+  // in words, rather than inferred from dimmed rows.
+  var stage=methodsData.stage||{};
+  var stageLine='';
+  if(stage.id){
+    var id=esc(stage.id);
+    stageLine='<div class="stage-line"><b>'+esc(stage.label||'')+'</b> — '
+      +esc(stage.description||'')+'</div>'
+      +'<div class="stage-switch">'+t('stagePrefix')
+      +['campaign','early','endgame'].map(function(choice){
+        return '<button class="'+(choice===stage.id?'on':'')+'" onclick="setStage(\''+choice+'\')">'
+          +esc({campaign:t('stageCampaign'),early:t('stageEarly'),endgame:t('stageEndgame')}[choice])+'</button>';
+      }).join(' ')+'</div>';
+  }
+  return stageLine+'<div class="split"><div class="left">'+renderMethodsList()+'</div>'
+    +'<div class="right">'+renderMethodDetail()+'</div></div>'
+    + renderCurriculum() + renderTechniques();
+}
+
+function paintMethods(){
+  var view=document.getElementById('methods-view');
+  if(!view){return;}
+  // The scroll position is restored on the REAL scroller. Using the view's parent looked right and was
+  // wrong: the parent is not what scrolls, so every repaint jumped the panel back to the top - which is
+  // what made scrolling for more modifiers impossible.
+  var scroller=methodsScroller();
+  var wasAt=scroller?scroller.scrollTop:0;
+  view.innerHTML=renderMethodsView();
+  if(scroller){scroller.scrollTop=wasAt;}
+}
+
+function selectMethod(id){
+  var found=null;
+  ((methodsData&&methodsData.groups)||[]).forEach(function(group){
+    (group.methods||[]).forEach(function(row){if(row.id===id){found=row;}});
+  });
+  if(!found){return;}
+  methodsSel=found;
+  methodsShown=20;   // a new choice starts from the top of its own list
+  paintMethods();
+}
+function setSort(which){methodsSort=which;paintMethods();}
+function flipOrder(){methodsDesc=!methodsDesc;paintMethods();}
+function cycleTier(){methodsMinTier=methodsMinTier===0?3:(methodsMinTier===3?1:0);methodsShown=20;paintMethods();}
+
+// The stage is a judgement the ENGINE makes (from the item level) or the player makes by choosing. It is
+// not filtered here: the choice goes back to the host, the item is analysed again with it, and the panel
+// draws whatever comes back - so the rules for what to save live in one place.
+function setStage(stage){
+  if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage('stage:'+stage);}
+}
+
+// "Failed": the customer asked for the ways to free the side rather than a repeat of the same
+// method, and the picker already lists them, so this points at them instead of inventing a step.
+function confirmStep(outcome){
+  var name=methodsSel?methodsSel.title:t('fallbackMethod');
+  var box=document.getElementById('step-view');
+  var message=outcome==='done'
+    ? t('confirmDone')+name+t('confirmDoneTail')
+    : t('confirmFailed')+name+t('confirmFailedTail');
+  if(box){
+    box.innerHTML='<div class="step"><div class="step-title">'+esc(message)+'</div>'
+      +'<div class="loop">'+t('openMethodsHint')+'</div></div>';
+  }
+  showTab('step');
+}
+
+// Scrolling inside the panel reveals the rest of a long modifier list, as the customer asked: the first
+// twenty rows are drawn and the remainder follows the scrollbar instead of a button.
+//
+// The scroller is the panel itself (".panel" has overflow-y), NOT the window, and a scroll inside an
+// element never reaches a window listener without capturing - which is why the customer scrolled and
+// nothing loaded. The listener is registered with capture:true (see the bottom of this script), and this
+// function finds the real scroller by walking up from the picker instead of assuming its parent.
+function methodsScroller(){
+  var node=document.getElementById('methods-view');
+  while(node&&node!==document.body){
+    var style=window.getComputedStyle(node);
+    var overflowY=style?style.overflowY:'';
+    if((overflowY==='auto'||overflowY==='scroll')&&node.scrollHeight>node.clientHeight+4){
+      return node;
+    }
+    node=node.parentNode;
+  }
+  return document.scrollingElement||document.documentElement;
+}
+
+function methodsOnScroll(){
+  if(!methodsData||!methodsSel){return;}
+  var view=document.getElementById('methods-view');
+  if(!view||view.style.display==='none'){return;}
+  var scroller=methodsScroller();
+  if(!scroller){return;}
+  if(scroller.scrollTop+scroller.clientHeight<scroller.scrollHeight-40){return;}
+  var all=visibleMods(methodsSel);
+  if(methodsShown<all.length){methodsShown=methodsShown+20;paintMethods();}
+}
+
+// The whole screen comes from the engine: the step it recommends, the warnings that apply to this
+// item, and the reference. Nothing is computed here.
+// "Craft or buy?" - every guide says answer this BEFORE spending. The panel can only compute the craft side:
+// the price snapshot has never carried rare items, so it shows the cost, the search recipe and the rule, and
+// says plainly that the finished-item price has to be looked up. A fabricated buy price would be worse than
+// none.
+// The verdict block, split so the simple screen can show ONE line and keep the rest behind "show everything".
+// The complaint that started this was not "the panel lacks features" but "it is easier to do nothing than to
+// use it": on a real card nine lines of this block said nothing the player could act on.
+// A coin badge instead of a word where money is mentioned: the eye finds gold faster than it reads the word.
+// Colours are game-flavoured hints, not the real icons (the icon assets live under web/public, not in the panel).
+var COIN_KINDS=[
+  {re:/\u0432\u043e\u0437\u0432\u044b\u0448\u0435\u043d|exalted/i, colour:'#c9a227'},
+  {re:/\u0431\u043e\u0436\u0435\u0441\u0442\u0432|divine/i, colour:'#b39ddb'},
+  {re:/\u0445\u0430\u043e\u0441|chaos/i, colour:'#d98c3f'},
+  {re:/\u0430\u043d\u043d\u0443\u043b\u0438\u0440|annul/i, colour:'#7fb3d5'},
+  {re:/\u044d\u0441\u0441\u0435\u043d\u0446|\u0441\u0443\u0449\u043d\u043e\u0441\u0442|essence/i, colour:'#7fbf7f'},
+  {re:/\u0444\u0440\u0430\u043a\u0442\u0443\u0440|fractur/i, colour:'#59b3a6'},
+  {re:/\u043e\u0447\u0435\u0440\u043d|\u0434\u0435\u0437\u0435\u043a\u0440\u0430\u0446|desecrat/i, colour:'#a879b8'},
+  {re:/\u0440\u0435\u0433\u0430\u043b|regal/i, colour:'#c0a165'},
+  {re:/\u0430\u043b\u0445\u0438\u043c|alchemy/i, colour:'#9aa36b'}
+];
+function coinFor(text){
+  var value=String(text||'');
+  for(var i=0;i<COIN_KINDS.length;i++){
+    if(COIN_KINDS[i].re.test(value)){
+      return '<span class="coin" style="background:'+COIN_KINDS[i].colour+'"></span>';
+    }
+  }
+  return '';
+}
+// What the item's own state forbids (one crafted slot, one desecrated slot - C1, C8), said above the step so
+// the player is not invited to spend currency on something that cannot work.
+function renderStateNotes(notes){
+  if(!notes||!notes.length){return '';}
+  var html='';
+  notes.forEach(function(note){
+    html+='<div class="statecheck">'+esc(note.text||'')+'</div>';
+  });
+  return html;
+}
+// The route: what a person would tell you, in three steps and a stop rule. Every step shows the confirmed rule
+// it stands on (C1, C3, C6 ...), so the advice can be checked instead of trusted.
+function renderRoutes(routes){
+  if(!routes||!routes.length){return '';}
+  var route=routes[0];
+  var html='<div class="routes"><div class="route-goal"><b>'+t('routeGoal')+'</b>'+esc(route.goal||'')+'</div>';
+  html+='<ol class="route-steps">';
+  (route.steps||[]).forEach(function(step){
+    var rules=(step.rules||[]).join('·');
+    html+='<li>'+coinFor(step.action)+esc(step.action||'')+(rules?'<span class="route-rules" title="'+esc(t('routeRulesTitle')+rules)+'">✓</span>':'')+'</li>';
+  });
+  html+='</ol>';
+  if(route.stopRule){html+='<div class="route-stop">'+esc(route.stopRule)+'</div>';}
+  if(routes.length>1){html+='<div class="dim">'+t('routeMore')+(routes.length-1)+'</div>';}
+  return html+'</div>';
+}
+
+function renderCraftOrBuyHead(block){
+  if(!block){return '';}
+  var parts=['<h3>'+t('craftOrBuyHead')+'</h3>'];
+  if(block.hasCost&&block.cheapest){
+    var c=block.cheapest;
+    var cost=(c.expectedCost&&c.expectedCost.chaos!==undefined)
+      ? Number(c.expectedCost.chaos).toFixed(2) : '—';
+    parts.push('<div class="step-why"><b>'+esc(c.method)+'</b>'+t('expectedPrefix')+esc(cost)
+      +t('expectedMiddle')+esc(String(c.expectedAttempts||'?'))+t('attemptsSuffix')
+      +(c.costFor90?t('costFor90Prefix')+esc(Number(c.costFor90.chaos).toFixed(2))+t('costFor90Tail'):'')+'.</div>');
+  } else {
+    parts.push('<div class="step-why dim">'+t('noCost')+'</div>');
+  }
+  // Everything that is bookkeeping rather than advice collapses into one countable line.
+  var unpriced=(block.unpriced||[]).length;
+  if(unpriced){
+    parts.push('<div class="dim">'+t('unpricedSummaryA')+unpriced+t('unpricedSummaryB')+'</div>');
+  }
+  if(block.hasCost){
+    parts.push('<div class="controls"><input id="buy-input" placeholder="'+t('buyPlaceholder')+'" '
+      +'style="flex:1;min-width:150px" onkeydown="if(event.key===\'Enter\')askBuy()">'
+      +'<button onclick="askBuy()">'+t('compareButton')+'</button>'
+      +'<button onclick="askAutoPrice()" title="'+t('autoPriceTitle')+'">'+t('priceButton')+'</button>'
+      +'</div><div id="buy-verdict"></div>');
+  }
+  return parts.join('');
+}
+function renderCraftOrBuyDetails(block){
+  if(!block){return '';}
+  var parts=[];
+  // Routes we cannot price are named rather than ranked: a lower bound is not a price. The missing
+  // component is quoted, because a game name arrives in the nominative and an unquoted one inserted
+  // into the sentence would have to be declined by us, which reads like a mistake.
+  (block.unpriced||[]).forEach(function(route){
+    parts.push('<div class="branch no">'+esc(route.method)+t('unknownPrice')
+      +esc((route.missing||[]).join(', '))+t('closingQuote')+'</div>');
+  });
+  if(block.recipe&&(block.recipe.stats||[]).length){
+    parts.push('<div class="dim" style="margin-top:4px">'+t('tradeSearch')+'</div>');
+    parts.push('<div class="lesson-text">'+esc(block.recipe.class||'')+t('itemLevelPrefix')
+      +esc(String(block.recipe.itemLevel||'?'))+' · '+esc(rarityWord(block.recipe.rarity))+'<br>'
+      +(block.recipe.stats||[]).map(function(stat){
+        return '• '+esc(stat.text)+(stat.tier?(' ('+t('tierSpaced')+esc(String(stat.tier))+')'):'');
+      }).join('<br>')+'</div>');
+  }
+  if(block.rule){parts.push('<div class="step-why" style="margin-top:5px">'+esc(block.rule)+'</div>');}
+  return parts.join('');
+}
+
+// Ask the host to compare the craft cost with the price the player just looked up.
+function askBuy(){
+  var input=document.getElementById('buy-input');
+  var value=input?String(input.value).replace(',','.').trim():'';
+  if(!value){return;}
+  if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage('buy:'+value);}
+  buyPending='calculating';
+  paintBuyVerdict();
+}
+
+// Ask the host to price the item on the live trade site instead of asking the player.
+function askAutoPrice(){
+  if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage('autoprice');}
+  buyPending='askingTrade';
+  paintBuyVerdict();
+}
+
+// The engine's verdict, cached so a language switch can redraw it without asking the engine again.
+// It always says that the craft cost is an average and that the price came from the player, because a
+// comparison is only as honest as its inputs.
+var lastBuyVerdict=null;   // {verdict, priceNote} of the last answer; null before the first one
+var buyPending=null;       // key of the placeholder shown while the host works, or null
+function paintBuyVerdict(){
+  var box=document.getElementById('buy-verdict');
+  if(!box){return;}
+  if(buyPending){box.innerHTML='<div class="guide-row dim">'+t(buyPending)+'</div>';return;}
+  if(!lastBuyVerdict){box.innerHTML='';return;}
+  var verdict=lastBuyVerdict.verdict;
+  var priceNote=lastBuyVerdict.priceNote;
+  if(!verdict||!verdict.verdict){
+    var why=verdict&&verdict.text?esc(verdict.text):t('nothingToCompare');
+    box.innerHTML='<div class="branch no">'+why+'</div>'+tradeLink(verdict);
+    return;
+  }
+  var css=verdict.verdict==='buy'?'no':(verdict.verdict==='craft'?'ok':'');
+  box.innerHTML='<div class="branch '+css+'">'+esc(verdict.text||'')+'</div>'
+    +'<div class="dim">'+esc(verdict.line||'')+'</div>'
+    +(priceNote?'<div class="dim">'+esc(priceNote)+'</div>':'')
+    +'<div class="dim">'+esc(verdict.note||'')+'</div>'
+    +tradeLink(verdict);
+}
+// The trade search this verdict was built from, as a button that asks the window to open it in the browser.
+// It is the honest escape hatch when the price is a loose match: one click shows the same query on the site.
+function tradeLink(verdict){
+  var url=verdict&&verdict.marketUrl;
+  if(!url||typeof url!=='string'||url.indexOf('https://www.pathofexile.com/')!==0) return '';
+  return '<div class="proplink"><button class="linkbtn" data-url="'+esc(url)+'">'+t('openTradeSearch')+'</button></div>';
+}
+// The button only ASKS: the window decides whether to open the browser, because navigating this WebView would
+// replace the panel with the trade site.
+document.addEventListener('click', function(event){
+  var button=event.target.closest?event.target.closest('.linkbtn'):null;
+  if(!button) return;
+  var url=button.getAttribute('data-url')||'';
+  if(url.indexOf('https://www.pathofexile.com/')!==0) return;
+  window.chrome.webview.postMessage('link:'+url);
+});
+window.showBuyVerdict=function(verdict, priceNote){
+  lastBuyVerdict={verdict:verdict, priceNote:priceNote};
+  buyPending=null;
+  paintBuyVerdict();
+};
+
+// Beginner mode beats showing everything. The complaint that started this was not "the panel lacks features"
+// but "I still do not understand how to use it", and seven blocks at once is why. Default ON; the choice is
+// remembered, and "Everything" restores the full card for anyone who wants it.
+var beginnerMode=(function(){try{return localStorage.getItem('poe2craft.beginner')!=='0';}catch(e){return true;}})();
+var lastCoach=null;        // the payload of the last showCoach call: the step card is redrawn from it
+var lastGuide=null;        // the guide payload, for the same reason on the reference tab
+function setBeginner(on){
+  beginnerMode=!!on;
+  try{localStorage.setItem('poe2craft.beginner', beginnerMode?'1':'0');}catch(e){}
+  if(lastCoach){window.showCoach(lastCoach.report,lastCoach.analysis,lastCoach.client,lastCoach.guide);}
+}
+
+// ---- language ----------------------------------------------------------------------------------------
+// The switch only ASKS the host and never changes the page itself: the host answers with setLanguage after
+// it has re-asked the engine for its text, so the page and the engine cannot end up in different languages.
+function chooseLanguage(code){
+  if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage('lang:'+code);}
+}
+
+// The one place that decides what language the page is in. Only chrome is redrawn, and only from data already
+// held: the engine is asked by the host, not from here, and the engine's own text is left exactly as it came.
+window.setLanguage=function(code){
+  LANG=(code==='en')?'en':'ru';
+  document.documentElement.lang=LANG;
+  // What the player has typed lives only in the inputs, so the redraw carries it across by hand: losing a
+  // price he just looked up in the trade site would make the switch feel like a reset.
+  var typedBuy=inputValue('buy-input');
+  var typedClaim=inputValue('claim-input');
+  paintChrome();
+  if(lastCoach){
+    // The step card holds the review, the step, the state, the warnings and the item: re-running showCoach
+    // with the payload it was given is the same render, in the new language.
+    window.showCoach(lastCoach.report,lastCoach.analysis,lastCoach.client,lastCoach.guide);
+  } else {
+    document.getElementById('step-view').innerHTML=renderEmptyStep();
+    document.getElementById('guide-view').innerHTML='';
+  }
+  paintMethods();
+  if(lastGuide){renderGuide(lastGuide);}
+  restoreInput('buy-input', typedBuy);
+  restoreInput('claim-input', typedClaim);
+  if(claimPending||lastClaimAnswer!==undefined){paintClaimAnswer();}
+  if(buyPending||lastBuyVerdict){paintBuyVerdict();}
+};
+
+function inputValue(id){
+  var node=document.getElementById(id);
+  return node?String(node.value):'';
+}
+function restoreInput(id, value){
+  var node=document.getElementById(id);
+  if(node&&value){node.value=value;}
+}
+
+window.showCoach=function(report, analysis, client, guide){
+  // The methods payload arrives with the analysis, so the picker costs no extra engine call. The
+  // previous choice is kept when the item is still the same, because a capture right after a step
+  // should show that same method's updated numbers rather than jump back to the first one.
+  methodsData=(analysis&&analysis.methods)||null;
+  var previous=methodsSel?methodsSel.id:null;
+  methodsSel=null;
+  if(previous&&methodsData){selectMethod(previous);}
+  if(!methodsSel&&methodsData&&(methodsData.groups||[]).length){
+    var firstGroup=methodsData.groups[0];
+    var firstMethod=(firstGroup.methods||[])[0];
+    if(firstMethod){selectMethod(firstMethod.id);}
+  }
+
+  if(!report){window.showEngineError(t('emptyAnswer'));return;}
+  lastCoach={report:report,analysis:analysis,client:client,guide:guide};
+  const item=(analysis&&analysis.item)||{};
+  const header=(client&&client.header)||{};
+  const parts=[];
+  const extras=[];
+  parts.push('<div class="name">'+esc(header.name||item.name||'')+'</div>');
+  parts.push('<div class="base">'+esc(header.base||item.baseType||'')+''
+    +'<span class="mode-switch"><button onclick="setBeginner(true)" class="'+(beginnerMode?'on':'')+'">'+t('beginnerButton')+'</button>'
+    +'<button onclick="setBeginner(false)" class="'+(beginnerMode?'':'on')+'">'+t('everythingButton')+'</button></span></div>');
+
+  const step=report.step||{};
+  (beginnerMode?extras:parts).push(renderReview(report.review));
+  parts.push('<div class="step">');
+  parts.push(renderRoutes(report.routes));
+  parts.push(renderStateNotes(report.stateNotes));
+  parts.push('<div class="step-title">'+esc(step.title||t('noStep'))+'</div>');
+  parts.push(contextStrip(step));
+  if(step.costLine){parts.push('<div class="step-cost">'+coinFor(step.costLine)+esc(step.costLine)+stepSourceBadge(analysis&&analysis.craftSummary, step)+'</div>');}
+  // What an experienced crafter says out loud and a probability table never does: the money for the whole
+  // attempt, and the threshold at which walking away beats crafting.
+  if(step.budgetLine){parts.push('<div class="step-budget">'+esc(step.budgetLine)+'</div>');}
+  if(step.stopRule){parts.push('<div class="step-stop">'+esc(step.stopRule)+'</div>');}
+  if(step.why){parts.push('<div class="step-why">'+esc(step.why)+'</div>');}
+  // The lesson states the principle behind the action, which is what makes the player independent of the
+  // tool next time. It is collapsed by default: a beginner who only wants the next click should not have to
+  // scroll past a paragraph, and one who wants to learn opens it once.
+  if(step.lesson){
+    parts.push('<details class="lesson"><summary>'+(step.lessonTitle?esc(step.lessonTitle):t('lessonTitle'))+'</summary>'
+      +'<div class="lesson-text">'+esc(step.lesson)+'</div></details>');
+  }
+  (beginnerMode?extras:parts).push(
+    (step.ifSuccess?'<div class="branch ok">'+t('ifSuccess')+esc(step.ifSuccess)+'</div>':'')
+    +(step.ifFail?'<div class="branch no">'+t('ifFail')+esc(step.ifFail)+'</div>':''));
+  // The simple screen shows the verdict line and the price input; the routes nobody could price, the trade
+  // recipe and the rule itself live behind 'show everything', where a reader who asks 'why' will find them.
+  parts.push(renderCraftOrBuyHead(report.craftOrBuy));
+  if(!beginnerMode){parts.push(renderCraftOrBuyDetails(report.craftOrBuy));}
+  else{extras.push(renderCraftOrBuyDetails(report.craftOrBuy));}
+  // The two answers the loop needs, on the screen where the step is read. They used to live only inside the
+  // method detail on the "Methods" tab, so a beginner had to know where to look to report what happened.
+  parts.push('<div class="actions">'
+    +'<button onclick="confirmStep(\'done\')">'+t('doneButton')+'</button>'
+    +'<button onclick="confirmStep(\'failed\')">'+t('failedButton')+'</button>'
+    +'</div>');
+  parts.push('<div class="loop">'+t('afterStep')+'</div>');
+  parts.push('</div>');
+
+  const state=report.state||{};
+  extras.push('<h3>'+t('stateTakenHead')+'</h3>');
+  const slots = state.splitKnown
+    ? t('openPrefixes')+state.openPrefixes+t('openSuffixes')+state.openSuffixes
+    : t('openSlotsPrefix')+state.openSlots+t('openSlotsTail');
+  extras.push(lines(slots
+    +'\n'+t('craftedSlot')+(state.craftedAnchorUsed?t('taken'):t('open'))
+    +t('desecratedSlot')+(state.desecratedAnchorUsed?t('taken'):t('open'))
+    +'\n'+t('modifiablePrefix')+(state.modifiable===false?t('modifiableNo'):t('yes'))
+    +(state.corrupted?'\n'+t('corruptedLine'):''),'guide-row'));
+
+  const warnings=report.warnings||[];
+  if(warnings.length){
+    extras.push('<h3>'+t('warningsHead')+' ('+warnings.length+')</h3>');
+    warnings.forEach(w=>extras.push('<div class="warn">• '+esc(w.text)+'</div>'));
+  }
+
+  if(client&&((client.properties||[]).length||(client.mods||[]).length)){
+    extras.push('<h3>'+t('itemHead')+'</h3>');
+    (client.properties||[]).forEach(p=>extras.push('<div class="prop">'+esc(p.label+': '+p.value)+'</div>'));
+    (client.mods||[]).forEach(m=>extras.push('<div class="mod"'+(m.fractured?' style="color:var(--gold)"':'')+'>'+esc(m.text)+'</div>'));
+    if(client.flags&&client.flags.corrupted){extras.push('<div class="prop no">'+t('corruptedFlag')+'</div>');}
+    // The state that closes an item to further crafting, shown where the item is: without this line
+    // an item that cannot be crafted looks like any other and the missing step looks like a bug.
+    if(client.flags&&client.flags.sanctified){extras.push('<div class="prop no">'+t('sanctifiedFlag')+'</div>');}
+    // A fractured item is the third state that closes the modifier list: the line used to be parsed as a
+    // modifier and showed up as a Russian bullet in the trade list.
+    if(client.flags&&client.flags.fractured){extras.push('<div class="prop no">'+t('fracturedFlag')+'</div>');}
+  }
+  // The menus of methods sit last on purpose: with them first the "what is already taken" and
+  // "what not to touch" blocks fell below the fold, and those decide the next click.
+  extras.push(renderStepMethods(analysis&&analysis.craftSummary));
+
+  // Beginner mode keeps one question on screen - what do I do now - and puts the rest behind one click. The
+  // count is in the summary so nothing is hidden silently: a warning the player never sees is worse than a
+  // warning below the fold.
+  if(beginnerMode){
+    const hidden=[];
+    if(warnings.length){hidden.push(warnings.length+t('warningsShort'));}
+    hidden.push(t('hiddenTaken'),t('hiddenItem'),t('hiddenMethods'));
+    parts.push('<details class="more"><summary>'+t('showAllPrefix')+hidden.join(' · ')+'</summary>'
+      +extras.join('')+'</details>');
+  } else {
+    parts.push(extras.join(''));
+  }
+
+  document.getElementById('step-view').innerHTML=parts.join('');
+  const league=((analysis&&analysis.craftSummary)||{}).league;
+  if(league){document.getElementById('league').textContent=t('leaguePrefix')+league;}
+  if(guide){lastGuide=guide;renderGuide(guide);}
+};
+
+function renderGuide(g){
+  const out=[];
+  out.push('<div class="guide-row dim">'+esc(g.league||'')+t('bySources')+'</div>');
+  out.push('<h3>'+t('mainRuleHead')+'</h3><div class="guide-row">'+esc(g.mainRule||'')+'</div>');
+  out.push('<h3>'+t('capsHead')+'</h3>');
+  (g.caps||[]).forEach(c=>out.push('<div class="guide-row"><b>'+esc(c.title)+'</b><br>'+esc(c.text)+'</div>'));
+  out.push('<h3>'+t('currenciesHead')+'</h3>');
+  (g.orbs||[]).forEach(o=>out.push('<div class="guide-row"><b>'+esc(o.name)+'</b> — '+esc(o.does)
+    +'<br><span class="dim">'+t('whenPrefix')+esc(o.when)+t('riskGuide')+esc(o.risk)+'</span></div>'));
+  out.push('<h3>'+t('omensHead')+'</h3>');
+  ((g.omens||{}).entries||[]).forEach(o=>out.push('<div class="guide-row"><b>'+esc(o.name)+'</b> — '+esc(o.does)
+    +'<br><span class="dim">'+t('whyPrefix')+esc(o.why)+'</span></div>'));
+  if(g.tiers){out.push('<h3>'+esc(g.tiers.title)+'</h3><div class="guide-row">'+esc(g.tiers.text)+'</div>');}
+  if(g.essence){out.push('<h3>'+esc(g.essence.title)+'</h3><div class="guide-row">'+esc(g.essence.text)+'</div>');}
+  if(g.groups){out.push('<h3>'+esc(g.groups.title)+'</h3><div class="guide-row">'+esc(g.groups.text)+'</div>');}
+  if(g.desecration){out.push('<h3>'+esc(g.desecration.title)+'</h3><div class="guide-row">'+esc(g.desecration.text)+'</div>');}
+  if(g.alloys){out.push('<h3>'+esc(g.alloys.title)+'</h3><div class="guide-row">'+esc(g.alloys.text)+'</div>');}
+  out.push('<h3>'+t('mistakesHead')+'</h3>');
+  (g.mistakes||[]).forEach(m=>out.push('<div class="warn">• '+esc(m.text)+'</div>'));
+  out.push('<h3>'+t('loopHead')+'</h3>');
+  (g.loop||[]).forEach(l=>out.push('<div class="guide-row">'+esc(l)+'</div>'));
+  // The Genesis Tree: since 0.5.0 catalysts do not drop from monsters, so this is where jewellery quality
+  // comes from. Shown with expected births, because "how many tries" is what decides whether to do it at all.
+  if(g.genesisTree){
+    out.push('<h3>GENESIS TREE</h3>');
+    out.push('<div class="guide-row dim">'+esc(g.genesisTree.location||'')+'</div>');
+    (g.genesisTree.goals||[]).forEach(function(goal){
+      var tries=goal.expectedBirths?(' · ~'+esc(String(goal.expectedBirths))+t('births')):'';
+      var chance=(goal.chance!==undefined)?(' · '+esc((Number(goal.chance)*100).toFixed(1))+'%'):'';
+      out.push('<div class="guide-row"><b>'+esc(goal.title)+'</b> — '+esc(goal.wombgift||'')
+        +chance+tries+'</div>');
+    });
+    (g.genesisTree.notes||[]).forEach(function(note){
+      out.push('<div class="warn">• '+esc(note)+'</div>');
+    });
+  }
+  // "Is this true?" - the question a beginner cannot answer alone, and the one that protects him from the
+  // fabricated guides found while researching the topic. The answer comes from the engine, not from here.
+  out.push('<h3>'+t('claimsHead')+'</h3>');
+  out.push('<div class="guide-row dim">'+t('claimIntro')+'</div>');
+  out.push('<div class="controls"><input id="claim-input" placeholder="'+t('claimPlaceholder')+'" '
+    +'style="flex:1;min-width:180px" onkeydown="if(event.key===\'Enter\')askClaim()">'
+    +'<button onclick="askClaim()">'+t('checkButton')+'</button></div>');
+  out.push('<div id="claim-answer"></div>');
+  if(g.claims&&g.claims.length){
+    // Say how many of the traps our own ruleset settles: a claim we merely wrote down is weaker evidence
+    // than one the data contradicts, and the player should know which he is looking at.
+    var checked=(g.claimsChecked&&g.claimsChecked.checked)||0;
+    out.push('<div class="guide-row dim" style="margin-top:6px">'+t('knownTraps')
+      +(checked?(' — '+checked+t('ofWord')+g.claims.length+t('trapsCheckedTail')):'')+':</div>');
+    g.claims.filter(c=>c.verdict==='false').forEach(function(c){
+      out.push('<div class="warn">• '+esc(c.title)+'</div>');
+    });
+  }
+  document.getElementById('guide-view').innerHTML=out.join('');
+}
+
+// The question goes to the host, which asks the engine: the rules for what is true live in one place, and the
+// page must not become a second opinion.
+var lastClaimAnswer;       // undefined = never answered on this page; null = the host answered "no answer"
+var claimPending=false;    // the answer is still on its way
+function askClaim(){
+  var input=document.getElementById('claim-input');
+  var text=input?input.value.trim():'';
+  if(!text){return;}
+  if(window.chrome&&window.chrome.webview){window.chrome.webview.postMessage('claim:'+text);}
+  claimPending=true;
+  paintClaimAnswer();
+}
+
+// The engine's verdict, shown with its reason and where it comes from. Cached, so a language switch redraws
+// it from the same answer instead of asking again.
+function paintClaimAnswer(){
+  var box=document.getElementById('claim-answer');
+  if(!box){return;}
+  if(claimPending){box.innerHTML='<div class="guide-row dim">'+t('claimChecking')+'</div>';return;}
+  var answer=lastClaimAnswer;
+  if(!answer){box.innerHTML='<div class="guide-row dim">'+t('noAnswer')+'</div>';return;}
+  if(answer.known===false){
+    box.innerHTML='<div class="branch no">'+t('nothingToCheck')+esc(answer.why||'')+'</div>';
+    return;
+  }
+  var right=answer.verdict==='true';
+  box.innerHTML='<div class="branch '+(right?'ok':'no')+'">'
+    +(right?t('correctPrefix'):t('wrongPrefix'))+esc(answer.title||'')+'</div>'
+    +'<div class="guide-row">'+esc(answer.why||'')+'</div>'
+    +'<div class="guide-row dim">'+t('sourcePrefix')+esc(answer.source||'')
+    +(answer.verified?t('verifiedMark'):t('manualMark'))
+    +'</div>';
+}
+window.showClaimAnswer=function(answer){
+  lastClaimAnswer=answer||null;
+  claimPending=false;
+  paintClaimAnswer();
+};
+
+// Draw the page's own chrome the moment this script is parsed: the markup carries no words of its own, so not
+// one frame can be painted in the wrong language. The host calls setLanguage again once it knows the
+// player's choice, and that is the only thing that ever changes LANG afterwards.
+paintChrome();
+document.getElementById('step-view').innerHTML=renderEmptyStep();
+</script>
+<script>
+  (function () {
+    // Drag the window by its top strip. Offsets are sent as whole pixels so the move stays exact.
+    // The panel draws no close control of its own any more: the form's title bar carries the
+    // ordinary one, and a second drawn cross in the corner only duplicated it.
+    var last = null;
+    function send(dx, dy) {
+      if (window.chrome && window.chrome.webview) { window.chrome.webview.postMessage('drag:' + dx + ':' + dy); }
+    }
+    document.addEventListener('mousedown', function (e) {
+      if (e.clientY <= 22) { last = { x: e.screenX, y: e.screenY }; e.preventDefault(); }
+    });
+    document.addEventListener('mousemove', function (e) {
+      if (!last) { return; }
+      // The left button must still be held: a mouseup outside the page would otherwise leave the
+      // window following the cursor for the rest of the session, which looked like the panel
+      // emptying itself whenever the pointer moved past it.
+      if (!(e.buttons & 1)) { last = null; return; }
+      var dx = e.screenX - last.x, dy = e.screenY - last.y;
+      if (dx || dy) { last = { x: e.screenX, y: e.screenY }; send(dx, dy); }
+    });
+    document.addEventListener('mouseup', function () { last = null; });
+  // The picker draws twenty modifiers and loads the rest when the panel is scrolled to the end.
+  window.addEventListener('scroll', methodsOnScroll, true);
+    document.addEventListener('mouseleave', function () { last = null; });
+    window.addEventListener('blur', function () { last = null; });
+  })();
+</script>
+</body></html>

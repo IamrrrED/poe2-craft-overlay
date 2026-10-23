@@ -1,0 +1,72 @@
+{
+  "settings": {
+    "bgroup": 0,
+    "base": 1,
+    "bitem": 3,
+    "ilvl": 64,
+    "rarity": "rare",
+    "influences": null,
+    "sockets": 0,
+    "socketed": [],
+    "quality": 0,
+    "exmods": null
+  },
+  "data": {
+    "implicits": null,
+    "iaffixes": [
+      {
+        "atype": "prefix",
+        "id": 6618,
+        "mgrp": "0",
+        "modgroups": [],
+        "tindex": 0,
+        "bench": 0,
+        "frac": 0,
+        "maven": 0,
+        "nvalues": "[[0,0]]",
+        "rolls": [
+          0
+        ],
+        "weight": "0"
+      },
+      {
+        "atype": "prefix",
+        "id": 5037,
+        "mgrp": "0",
+        "modgroups": [],
+        "tindex": 0,
+        "bench": 0,
+        "frac": 0,
+        "maven": 0,
+        "nvalues": "[[0,0]]",
+        "rolls": [
+          0
+        ],
+        "weight": "0"
+      },
+      {
+        "atype": "prefix",
+        "id": 6195,
+        "mgrp": "0",
+        "modgroups": [],
+        "tindex": 0,
+        "bench": 0,
+        "frac": 0,
+        "maven": 0,
+        "nvalues": "[[0,0]]",
+        "rolls": [
+          0
+        ],
+        "weight": "0"
+      }
+    ],
+    "iaffbt": {
+      "prefix": 0,
+      "suffix": 0
+    },
+    "imprint": null,
+    "eldritch": null,
+    "meta_flags": {}
+  },
+  "log": []
+}

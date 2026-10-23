@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Poe2CraftOverlay</AssemblyName>
+    <RootNamespace>Poe2CraftOverlay</RootNamespace>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The mushroom travels inside the executable: the shortcut, the tray and the taskbar all
+         take the icon from the binary, so no path can go stale. -->
+    <ApplicationIcon>Ui\mushroom.ico</ApplicationIcon>
+    <!-- What Task Manager shows in its description column. -->
+    <AssemblyTitle>PoE 2 Craft Overlay</AssemblyTitle>
+    <Product>PoE 2 Craft Overlay</Product>
+    <FileDescription>PoE 2 Craft Overlay</FileDescription>
+    <!-- The WebView2 controller is positioned with a System.Drawing rectangle, the same type the
+         official samples use, so the Windows Desktop targeting pack is switched on. -->
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Avalonia used to host the panel window; the card is a plain WinForms form now and the launch
+         indicator is a WinForms form as well, so nothing here depends on it any more. Dropping the
+         packages also drops the dark windows Avalonia opened around the mushroom at launch. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The interface is data, not code: it has to travel next to the exe, or the browser has
+         nothing to show. -->
+    <None Update="Ui\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Ui\mushroom.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
