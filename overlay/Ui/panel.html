@@ -1,7 +1,10 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8">
 <style>
-@font-face { font-family: Fontin; src: url('fontin-regular-webfont.ttf'); }
+/* Headings use Alegreya (SIL Open Font License, Cyrillic included) instead of the game's Fontin: Fontin belongs to
+   GGG and cannot be redistributed with an MIT repository. The file ships with its licence next to it. */
+@font-face { font-family: Display; src: url('fonts/Alegreya-Variable.ttf') format('truetype');
+  font-weight: 400 900; font-style: normal; font-display: swap; }
 :root {
   /* Warm charcoal instead of black, and one accent: the panel is read for hours, so the contrast stays calm
      and only gold marks the thing to DO. Pure black plus saturated gold tires the eye in minutes. */
@@ -9,8 +12,9 @@
   --panel:#17150f; --card:#1d1a13; --card2:#221e16; --line:#3a3427; --line2:#4a412f;
   --radius:8px; --radius-sm:6px; --gap:8px;
   --sans:"Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  --display:"Display", "PT Serif", Georgia, serif;
 }
-/* Fontin stays for game-flavoured headings (item name, step title, route goal); body text switches to a clean
+/* The display serif stays for headings (item name, step title, route goal); body text switches to a clean
    sans at a slightly larger size. All-serif Latin at 12 px is what made the card feel like a wall. */
 html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--panel);
   font-family:var(--sans); font-size:12.5px; line-height:1.45; color:var(--text); user-select:none;
@@ -153,7 +157,7 @@ h3 { font-size:12.5px; color:var(--gold); margin:8px 0 3px; font-weight:normal; 
 .panel::-webkit-scrollbar-thumb { background:var(--line2); border-radius:4px; }
 .panel::-webkit-scrollbar-track { background:transparent; }
 
-.title { font-family:Fontin, Georgia, serif; font-size:12.5px; letter-spacing:.2px; color:var(--dim);
+.title { font-family:var(--display); font-size:12.5px; letter-spacing:.2px; color:var(--dim);
   border-bottom:1px solid var(--line); padding-bottom:6px; margin-bottom:0; }
 .title #league { color:var(--gold); }
 
@@ -165,7 +169,7 @@ h3 { font-size:12.5px; color:var(--gold); margin:8px 0 3px; font-weight:normal; 
 .tab.on { color:#1a1710; background:var(--gold); border-color:var(--gold); font-weight:600; }
 .lang-switch .tab { border-radius:var(--radius-sm); }
 
-.name { font-family:Fontin, Georgia, serif; font-size:17px; letter-spacing:.3px; color:#f2ecdd;
+.name { font-family:var(--display); font-size:17px; letter-spacing:.3px; color:#f2ecdd;
   margin:8px 0 2px; }
 .base { color:var(--dim); font-size:11.5px; letter-spacing:.2px; }
 
@@ -175,14 +179,14 @@ h3 { font-size:12.5px; color:var(--gold); margin:8px 0 3px; font-weight:normal; 
   box-shadow:inset 0 1px 0 rgba(255,255,255,.035), 0 1px 2px rgba(0,0,0,.25);
   padding:10px 12px; margin:10px 0;
 }
-.step-title { font-family:Fontin, Georgia, serif; font-size:16.5px; color:var(--gold); margin-bottom:4px; }
+.step-title { font-family:var(--display); font-size:16.5px; color:var(--gold); margin-bottom:4px; }
 h3 { font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--dim); font-weight:600;
   margin:12px 0 5px; }
 
 /* The route is the headline of the card, so it gets the accent border and numbered steps as circles. */
 .routes { border-color:rgba(220,185,106,.35); padding:10px 12px 9px;
   background:linear-gradient(180deg, rgba(220,185,106,.07), var(--card) 60%); }
-.route-goal { font-family:Fontin, Georgia, serif; font-size:13.5px; margin-bottom:6px; color:var(--text); }
+.route-goal { font-family:var(--display); font-size:13.5px; margin-bottom:6px; color:var(--text); }
 .route-goal b { color:var(--gold); font-weight:600; letter-spacing:.02em; }
 .route-steps { list-style:none; margin:0; padding:0; counter-reset:rstep; }
 .route-steps li { counter-increment:rstep; position:relative; padding-left:26px; margin:0 0 5px; font-size:12.5px; }

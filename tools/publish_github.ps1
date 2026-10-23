@@ -94,6 +94,26 @@ foreach ($file in Get-ChildItem (Join-Path $root "overlay") -File -Filter "*.cs*
     $largest += [pscustomobject]@{ MB = [math]::Round($file.Length / 1MB, 2); Path = $relative }
 }
 
+# Assets that are legally clean and needed to build the panel as it looks: the OFL font with its licence text, and
+# the project owner's own indicator artwork (see overlay/Ui/ASSETS.md). The game's Fontin is NOT among them.
+$assetFiles = @(
+    "overlay\Ui\fonts\Alegreya-Variable.ttf",
+    "overlay\Ui\fonts\OFL.txt",
+    "overlay\Ui\mushroom.png",
+    "overlay\Ui\mushroom.ico",
+    "overlay\Ui\mushroom-source.png",
+    "overlay\Ui\ASSETS.md"
+)
+foreach ($asset in $assetFiles) {
+    $source = Join-Path $root $asset
+    if (-not (Test-Path $source)) { continue }
+    $target = Join-Path $OutDir $asset
+    $targetDir = Split-Path -Parent $target
+    if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
+    Copy-Item $source $target -Force
+    $copied++
+    $bytes += (Get-Item $source).Length
+}
 # The public snapshot ships no third-party tables: only the explanation of how to build them locally.
 $dataDir = Join-Path $OutDir "src\Data"
 if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir -Force | Out-Null }
