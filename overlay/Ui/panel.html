@@ -107,6 +107,8 @@ h3 { font-size:12.5px; color:var(--gold); margin:8px 0 3px; font-weight:normal; 
 .pool-row { display:flex; gap:8px; align-items:baseline; font-size:11.5px; padding:1px 0 1px 14px; }
 .pool-text { flex:1; color:#d8d1c2; }
 .pool-num { font-variant-numeric:tabular-nums; color:var(--good); min-width:44px; text-align:right; }
+.pool-price { margin-left:8px; font-size:11px; color:var(--dim); }
+.pool-price.ok { color:var(--good); font-variant-numeric:tabular-nums; }
 .pool-note { font-size:11px; margin-top:6px; }
 .methods { max-height:140px; overflow-y:auto; }
 /* Where a chance comes from matters more than the chance itself: Craft of Exile weights are
@@ -461,6 +463,10 @@ var T={
     poolPrefix:'Префиксы',
     poolSuffix:'Суффиксы',
     poolChance:'шанс',
+    poolPricePrefix:'≈',
+    poolLots:' лот.',
+    poolNoMarket:'рынок не ответил',
+    poolNoPrice:'цена не проверена',
     warningsShort:' предупр.',
     hiddenTaken:'что занято',
     hiddenItem:'предмет',
@@ -683,6 +689,10 @@ var T={
     poolPrefix:'Prefixes',
     poolSuffix:'Suffixes',
     poolChance:'chance',
+    poolPricePrefix:'≈',
+    poolLots:' listings',
+    poolNoMarket:'no market answer',
+    poolNoPrice:'price not checked',
     warningsShort:' warnings',
     hiddenTaken:'what is taken',
     hiddenItem:'the item',
@@ -910,8 +920,8 @@ function renderModPool(pool){
   const wanted=(pool.wanted||[]);
   if(wanted.length){
     out.push('<div class="pool-best"><div class="pool-best-title">'+t('poolBest')+'</div><ol class="route-steps">');
-    wanted.forEach(row=>{
-      out.push('<li>'+coinFor(row.bestText||'')+esc(row.bestText||'')
+    wanted.forEach((row,index)=>{
+      out.push('<li data-mod="'+index+'">'+coinFor(row.bestText||'')+esc(row.bestText||'')
         +'<span class="pool-meta">'+esc(families[row.family]||row.family||'')+' · '
         +t('poolChance')+' '+(row.chance||0).toFixed(1)+'%'+(row.bestTier?' · T'+row.bestTier:'')+'</span></li>');
     });
@@ -942,6 +952,30 @@ function renderModPool(pool){
   return out.join('');
 }
 
+// Prices arrive later than the card, because they cost trade requests: the host prices each wanted modifier in
+// the background and calls this. Every state is spoken: a number, "the market did not answer", or "not checked" -
+// silence would read as "free".
+function applyModPrices(payload){
+  const rows=(payload&&payload.results)||[];
+  const items=document.querySelectorAll('.pool-best .route-steps > li');
+  rows.forEach((row,index)=>{
+    const host=items[index];
+    if(!host){return;}
+    if(host.querySelector('.pool-price')){return;}
+    const chip=document.createElement('span');
+    chip.className='pool-price';
+    if(row.state==='priced'&&typeof row.median==='number'){
+      chip.classList.add('ok');
+      chip.textContent=t('poolPricePrefix')+(row.median<1?row.median.toFixed(3):row.median.toFixed(1))
+        +' '+(row.currency||'')+(row.priced?(' · '+row.priced+t('poolLots')):'');
+    }else if(row.state==='refused'){
+      chip.textContent=t('poolNoMarket');
+    }else{
+      chip.textContent=t('poolNoPrice');
+    }
+    host.appendChild(chip);
+  });
+}
 function renderStepMethods(summary){
   const all=(summary&&summary.entries)||[];
   const rows=all.filter(r=>r&&r.applicable===true);

@@ -468,6 +468,7 @@ Hotkeys.Install(this,
     // The last captured item, kept so the stage switch can re-analyse it without asking the player to
     // copy the item again: choosing "кампания" is a question about THIS item, not a new capture.
     private string? _lastItemText;
+    private string? _lastReportJson;
 
     /// Re-analyse the current item for a stage the player picked.
     /// The stage decides which methods are worth spending on, so switching it must re-ask the engine.
@@ -519,6 +520,180 @@ Hotkeys.Install(this,
         return null;
     }
 
+    /// Price the few modifiers worth hunting, not the whole item.
+    ///
+    /// Each wanted modifier is priced with the existing market script: one search for "this base with this
+    /// modifier", median of the priced listings - the same honest number the craft-vs-buy card uses. It runs in
+    /// the background so the card is never blocked by the trade site, one request per modifier (at most five),
+    /// and every failure is reported per modifier instead of being hidden: "no listings" and "not checked" are
+    /// different answers and the panel says which one it has.
+    public async Task PriceModsAsync()
+    {
+        if (string.IsNullOrEmpty(_lastItemText) || string.IsNullOrEmpty(_lastReportJson))
+        {
+            return;
+        }
+
+        var script = FindMarketScript();
+        if (script is null)
+        {
+            return;
+        }
+
+        List<string> texts = new();
+        try
+        {
+            using var report = System.Text.Json.JsonDocument.Parse(_lastReportJson);
+            if (report.RootElement.TryGetProperty("modPool", out var pool)
+                && pool.TryGetProperty("wanted", out var wanted)
+                && wanted.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var entry in wanted.EnumerateArray())
+                {
+                    if (entry.TryGetProperty("bestText", out var text)
+                        && text.ValueKind == System.Text.Json.JsonValueKind.String)
+                    {
+                        var value = text.GetString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            texts.Add(value!);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception error)
+        {
+            Log.Write("panel: mod prices could not read the pool: " + error.Message);
+            return;
+        }
+        if (texts.Count == 0)
+        {
+            return;
+        }
+        if (texts.Count > 5)
+        {
+            texts = texts.GetRange(0, 5);
+        }
+
+        // The base, the host and the league come from the engine: it parses the item, and a Russian query must
+        // go to the Russian host, exactly like the item price does.
+        var spec = await _engine.CallAsync("market_query", new Dictionary<string, object?>
+        {
+            ["item_text"] = _lastItemText,
+            ["lang"] = _language,
+        });
+        if (spec is null)
+        {
+            return;
+        }
+
+        var results = new List<Dictionary<string, object?>>();
+        foreach (var text in texts)
+        {
+            var payload = new Dictionary<string, object?>
+            {
+                ["base"] = spec["base"]?.ToString(),
+                ["mods"] = new[] { new Dictionary<string, object?> { ["text"] = text } },
+                ["lang"] = _language,
+            };
+            var host = spec["tradeHost"]?.ToString();
+            if (!string.IsNullOrEmpty(host))
+            {
+                payload["tradeHost"] = host;
+            }
+            var league = spec["league"]?.ToString();
+            if (!string.IsNullOrEmpty(league))
+            {
+                payload["league"] = league;
+            }
+
+            var answer = await RunMarketAsync(script, payload);
+            var row = new Dictionary<string, object?> { ["text"] = text };
+            if (answer is null)
+            {
+                row["state"] = "unreadable";
+            }
+            else
+            {
+                var body = answer.Value;
+                row["state"] = body.TryGetProperty("ok", out var ok)
+                    && ok.ValueKind == System.Text.Json.JsonValueKind.True
+                        ? "priced"
+                        : "refused";
+                // The script answers in chaos and calls the field "medianChaos" (the item price path reads the
+                // same one), so the panel converts nothing and shows the number the market gave.
+                if (body.TryGetProperty("medianChaos", out var median)
+                    && median.ValueKind == System.Text.Json.JsonValueKind.Number)
+                {
+                    row["median"] = median.GetDouble();
+                    row["currency"] = _language == "en" ? "chaos" : "хаоса";
+                }
+                if (body.TryGetProperty("priced", out var priced)
+                    && priced.ValueKind == System.Text.Json.JsonValueKind.Number)
+                {
+                    row["priced"] = priced.GetInt32();
+                }
+                if (body.TryGetProperty("currency", out var currency))
+                {
+                    row["currency"] = currency.ToString();
+                }
+                if (body.TryGetProperty("url", out var url))
+                {
+                    row["url"] = url.ToString();
+                }
+                if (body.TryGetProperty("reasonRu", out var reason))
+                {
+                    row["reason"] = reason.ToString();
+                }
+            }
+            results.Add(row);
+        }
+
+        Log.Write("panel: mod prices ready for " + results.Count + " modifiers");
+        await RunAsync("window.applyModPrices("
+            + System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object?> { ["results"] = results })
+            + ")");
+    }
+
+    /// One market-script call, shared by the item price and the modifier prices.
+    private static async Task<System.Text.Json.JsonElement?> RunMarketAsync(string script,
+        Dictionary<string, object?> payload)
+    {
+        try
+        {
+            var node = Environment.GetEnvironmentVariable("POE2CRAFT_NODE") ?? "node";
+            var start = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = node,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8,
+            };
+            start.ArgumentList.Add(script);
+            using var process = System.Diagnostics.Process.Start(start);
+            if (process is null)
+            {
+                return null;
+            }
+            await process.StandardInput.WriteAsync(
+                System.Text.Json.JsonSerializer.Serialize(payload));
+            process.StandardInput.Close();
+            var output = await process.StandardOutput.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            using var document = System.Text.Json.JsonDocument.Parse(output);
+            return document.RootElement.Clone();
+        }
+        catch (Exception error)
+        {
+            Log.Write("panel: market call failed: " + error.Message);
+            return null;
+        }
+    }
     /// Price the item on the live trade site and compare it with the craft cost.
     /// The engine decides WHAT to ask (it parses the item); the node script asks it; the engine compares.
     public async Task AutoPriceAsync()
@@ -741,6 +916,8 @@ Hotkeys.Install(this,
             });
         var guide = await _engine.CallAsync("crafting_guide",
             new Dictionary<string, object?> { ["lang"] = _language });
+        // Kept so the background price pass can read the modifier pool without asking the engine again.
+        _lastReportJson = report?.ToJsonString();
         await RunAsync($"window.showCoach({report?.ToJsonString() ?? "null"}, {analysis.ToJsonString()}, "
             + $"{client?.ToJsonString() ?? "null"}, {guide?.ToJsonString() ?? "null"})");
         Log.Write("panel: card updated");
