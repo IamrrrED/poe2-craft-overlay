@@ -19,6 +19,7 @@ local Ru = require("Item.Ru")
 local OutRu = require("Mcp.out_ru")
 local RulesRu = require("Data.rules_ru")
 local Recipes = require("Data.recipes")
+local ModPool = require("Craft.ModPool")
 local Categories = require("Item.Categories")
 local Advisor = require("Craft.Advisor")
 local Essences = require("Item.Essences")
@@ -1913,6 +1914,9 @@ local function dispatch(name, args)
 		-- What the item's own state forbids, before any step: one crafted slot, one desecrated slot (C1, C8).
 		-- Saying it here stops the card from proposing a step that cannot work.
 		report.stateNotes = Recipes.stateNotes(report.state or { })
+		-- What can still land on this item, grouped and ranked for the goal. Lives in "показать всё", not on the
+		-- card: the pool is 40+ entries and the card is for one action.
+		report.modPool = ModPool.forItem(parsed, { goal = args.goal, lang = languageOf(args) })
 		return report, nil
 	end
 

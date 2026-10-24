@@ -95,6 +95,19 @@ h3 { font-size:12.5px; color:var(--gold); margin:8px 0 3px; font-weight:normal; 
 .method.head span { flex:1; }
 .method.head span:first-child { flex:2.1; }
 .method.head span:nth-child(2) { flex:1.5; }
+/* The modifier pool sits behind "show everything": families collapse, the wanted list stays open. */
+.pool-best { border:1px solid rgba(220,185,106,.3); border-radius:8px; padding:8px 10px; margin:6px 0 10px;
+  background:linear-gradient(180deg, rgba(220,185,106,.06), transparent); }
+.pool-best-title { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin-bottom:4px; }
+.pool-meta { color:var(--dim); font-size:10.5px; margin-left:6px; }
+.pool-side { margin:8px 0; }
+.pool-side-title { font-size:11px; font-weight:600; color:#cfc3a5; margin-bottom:4px; letter-spacing:.03em; }
+.pool-family { margin:2px 0; }
+.pool-family summary { cursor:pointer; font-size:12px; color:var(--gold); }
+.pool-row { display:flex; gap:8px; align-items:baseline; font-size:11.5px; padding:1px 0 1px 14px; }
+.pool-text { flex:1; color:#d8d1c2; }
+.pool-num { font-variant-numeric:tabular-nums; color:var(--good); min-width:44px; text-align:right; }
+.pool-note { font-size:11px; margin-top:6px; }
 .methods { max-height:140px; overflow-y:auto; }
 /* Where a chance comes from matters more than the chance itself: Craft of Exile weights are
    measured on this very base, the Path of Building fallback is an estimate. */
@@ -443,6 +456,11 @@ var T={
     beginnerButton:'Новичок',
     everythingButton:'Всё',
     showAllPrefix:'Показать всё: ',
+    poolHead:'Могут выпасть ещё',
+    poolBest:'Стоит ловить под вашу цель',
+    poolPrefix:'Префиксы',
+    poolSuffix:'Суффиксы',
+    poolChance:'шанс',
     warningsShort:' предупр.',
     hiddenTaken:'что занято',
     hiddenItem:'предмет',
@@ -660,6 +678,11 @@ var T={
     beginnerButton:'Beginner',
     everythingButton:'Everything',
     showAllPrefix:'Show everything: ',
+    poolHead:'Can still roll',
+    poolBest:'Worth hunting for your goal',
+    poolPrefix:'Prefixes',
+    poolSuffix:'Suffixes',
+    poolChance:'chance',
     warningsShort:' warnings',
     hiddenTaken:'what is taken',
     hiddenItem:'the item',
@@ -875,6 +898,50 @@ function stepSourceBadge(summary, step){
 
 // Every crafting method the engine priced for this item, next to the step it recommends. The
 // reliability mark lives in the chance column, so a number is never read without its source.
+// The modifier pool: what can still land, how often, and which entries answer the player's goal.
+// Honest split, visible in the markup: `chance` is the share of the roll weight (rarity, not price), the highlight
+// is our judgement for the stated goal, and price is a separate slot that says "not checked" until it is.
+function renderModPool(pool){
+  if(!pool||!pool.sides){return '';}
+  const families={};
+  (pool.families||[]).forEach(f=>{families[f.id]=f.name||f.id;});
+  const out=[];
+  out.push('<h3>'+t('poolHead')+'</h3>');
+  const wanted=(pool.wanted||[]);
+  if(wanted.length){
+    out.push('<div class="pool-best"><div class="pool-best-title">'+t('poolBest')+'</div><ol class="route-steps">');
+    wanted.forEach(row=>{
+      out.push('<li>'+coinFor(row.bestText||'')+esc(row.bestText||'')
+        +'<span class="pool-meta">'+esc(families[row.family]||row.family||'')+' · '
+        +t('poolChance')+' '+(row.chance||0).toFixed(1)+'%'+(row.bestTier?' · T'+row.bestTier:'')+'</span></li>');
+    });
+    out.push('</ol></div>');
+  }
+  ['prefix','suffix'].forEach(side=>{
+    const groups=((pool.sides[side]||{}).groups)||[];
+    if(!groups.length){return;}
+    out.push('<div class="pool-side"><div class="pool-side-title">'
+      +t(side==='prefix'?'poolPrefix':'poolSuffix')+' · '+groups.length+'</div>');
+    const byFamily={};
+    groups.forEach(row=>{const key=row.family||'other';(byFamily[key]=byFamily[key]||[]).push(row);});
+    Object.keys(byFamily).forEach(key=>{
+      const rows=byFamily[key];
+      out.push('<details class="pool-family"><summary>'+esc(families[key]||key)+' · '+rows.length+'</summary>');
+      rows.forEach(row=>{
+        out.push('<div class="pool-row"><span class="pool-text">'+esc(row.bestText||'')+'</span>'
+          +'<span class="pool-num">'+(row.chance||0).toFixed(1)+'%</span>'
+          +'<span class="pool-num dim">T'+esc(String(row.bestTier||'-'))+'</span></div>');
+      });
+      out.push('</details>');
+    });
+    out.push('</div>');
+  });
+  if(pool.price&&pool.price.checked===false){
+    out.push('<div class="dim pool-note">'+esc(pool.price.noteRu||pool.price.noteEn||'')+'</div>');
+  }
+  return out.join('');
+}
+
 function renderStepMethods(summary){
   const all=(summary&&summary.entries)||[];
   const rows=all.filter(r=>r&&r.applicable===true);
@@ -1523,6 +1590,10 @@ window.showCoach=function(report, analysis, client, guide){
   // The menus of methods sit last on purpose: with them first the "what is already taken" and
   // "what not to touch" blocks fell below the fold, and those decide the next click.
   extras.push(renderStepMethods(analysis&&analysis.craftSummary));
+
+  // The modifier pool: every modifier that can still land, grouped by family and ranked for the goal. It lives
+  // here, behind "show everything", because it is 40+ lines - the card is for one action, this is for planning.
+  extras.push(renderModPool(report.modPool));
 
   // Beginner mode keeps one question on screen - what do I do now - and puts the rest behind one click. The
   // count is in the summary so nothing is hidden silently: a warning the player never sees is worse than a

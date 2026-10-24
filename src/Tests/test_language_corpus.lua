@@ -35,6 +35,10 @@ local ALLOWED_PATHS = {
 	"%.id$",
 	-- Affix names the client prints ("of the Walrus"): the game's own words.
 	"^item%.affixes%.",
+	-- The modifier pool prints the game's stat lines ("Equipment and Skill Gems have ... reduced Attribute
+	-- Requirements"). Same kind of text as the affix names above: translated where the dictionary knows the
+	-- sentence, verbatim where it does not, and never our prose.
+	"^modPool%.",
 }
 
 -- The client's own text: item_lines ANSWERS with it, and nothing in it is ours to translate.

@@ -97,7 +97,10 @@ for path in GLOSSARY_FILES:
 checks["one Russian word per concept"] = not glossary_hits
 
 # Everything the render code asks for must exist, otherwise t() would print the key itself.
-used = set(re.findall(r"t\('([A-Za-z0-9_]+)'\)", page))
+# `t('key')` is the translation call, but the pattern must not fire inside another word: `format('truetype')`
+# in a @font-face rule ends with `t('truetype')` and used to be reported as a missing key. The lookbehind
+# requires the call to start at a word boundary.
+used = set(re.findall(r"(?<![\w.$])t\('([A-Za-z0-9_]+)'\)", page))
 missing = sorted(used - set(ru_keys))
 checks["every t() call names a key of the table"] = not missing
 
