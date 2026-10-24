@@ -27,6 +27,7 @@ const MARKET = path.join(__dirname, '..', 'mcp-market');
 const trade = require(path.join(MARKET, 'lib', 'trade.js'));
 const ninja = require(path.join(MARKET, 'lib', 'ninja.js'));
 const http = require(path.join(MARKET, 'lib', 'http.js'));
+const modCache = require(path.join(__dirname, 'lib', 'mod_cache.js'));
 
 let TRADE_HOST = 'www.pathofexile.com';
 
@@ -218,6 +219,23 @@ async function main() {
   if (!mods.length) {
     console.log(JSON.stringify({ ok: false, reason: 'no modifiers to match' }));
     return;
+  }
+
+  // A day-long cache, checked before the quota gate: an answer already on disk must cost no request at all.
+  // Only successful prices are stored (tools/lib/mod_cache.js), so a rate-limit refusal never sticks and a
+  // temporary limit cannot turn into a day of "no market data".
+  const cacheKey = modCache.keyFor(TRADE_HOST, spec.league, base, mods.map((mod) => mod.text));
+  if (spec.noCache !== true) {
+    const cached = modCache.get(cacheKey);
+    if (cached) {
+      console.log(JSON.stringify(Object.assign({}, cached.payload, {
+        ok: true,
+        cached: true,
+        cachedAgeSeconds: cached.ageSeconds,
+        cacheTtlSeconds: cached.ttlSeconds,
+      })));
+      return;
+    }
   }
 
   // Refuse before spending a request: a call made during a cooldown is refused AND still costs budget.
@@ -429,6 +447,23 @@ async function main() {
   const values = priced.map((row) => row.chaos);
   const lowest = Math.min(...values);
   const highest = Math.max(...values);
+
+  // Store only what succeeded, and only the fields a repeat call needs: the quota and the raw rows are volatile,
+  // and the "cached" markers are added on read so a cached answer still says where it came from.
+  if (spec.noCache !== true) {
+    modCache.put(cacheKey, {
+      base,
+      league,
+      priced: priced.length,
+      medianChaos: median(values),
+      lowestChaos: lowest,
+      highestChaos: highest,
+      resolved,
+      matchedAt: rung.at,
+      matchedLabel: rung.label,
+      url: winningUrl,
+    });
+  }
 
   console.log(JSON.stringify({
     ok: true,

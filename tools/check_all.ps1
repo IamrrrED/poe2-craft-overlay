@@ -40,6 +40,10 @@ Step "host messages: both languages, placeholders, call sites" {
     & python tools\check_host_messages.py
 }
 
+Step "modifier price cache (node self-test, no network)" {
+    & node tools\lib\mod_cache.js --self-test
+    if ($LASTEXITCODE -ne 0) { throw "mod cache self-test failed" }
+}
 Step "market refusal reasons have Russian" {
     & python tools\check_market_reasons.py
 }

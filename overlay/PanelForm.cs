@@ -638,7 +638,13 @@ Hotkeys.Install(this,
                 {
                     row["currency"] = currency.ToString();
                 }
-                if (body.TryGetProperty("url", out var url))
+                // A cached number is still a number, but the panel says so: a day-old price and a live one are
+                // not the same claim, and the player can tell the difference at a glance.
+                if (body.TryGetProperty("cached", out var cached) && cached.ValueKind == System.Text.Json.JsonValueKind.True)
+                {
+                    row["cached"] = body.TryGetProperty("cachedAgeSeconds", out var age)
+                        && age.ValueKind == System.Text.Json.JsonValueKind.Number ? age.GetInt32() : 0;
+                }                if (body.TryGetProperty("url", out var url))
                 {
                     row["url"] = url.ToString();
                 }

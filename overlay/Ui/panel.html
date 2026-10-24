@@ -467,6 +467,7 @@ var T={
     poolLots:' лот.',
     poolNoMarket:'рынок не ответил',
     poolNoPrice:'цена не проверена',
+    poolCached:'из кэша',
     warningsShort:' предупр.',
     hiddenTaken:'что занято',
     hiddenItem:'предмет',
@@ -693,6 +694,7 @@ var T={
     poolLots:' listings',
     poolNoMarket:'no market answer',
     poolNoPrice:'price not checked',
+    poolCached:'cached',
     warningsShort:' warnings',
     hiddenTaken:'what is taken',
     hiddenItem:'the item',
@@ -967,7 +969,7 @@ function applyModPrices(payload){
     if(row.state==='priced'&&typeof row.median==='number'){
       chip.classList.add('ok');
       chip.textContent=t('poolPricePrefix')+(row.median<1?row.median.toFixed(3):row.median.toFixed(1))
-        +' '+(row.currency||'')+(row.priced?(' · '+row.priced+t('poolLots')):'');
+        +' '+(row.currency||'')+(row.priced?(' · '+row.priced+t('poolLots')):'')+(row.cached?(' · '+t('poolCached')):'');
     }else if(row.state==='refused'){
       chip.textContent=t('poolNoMarket');
     }else{
