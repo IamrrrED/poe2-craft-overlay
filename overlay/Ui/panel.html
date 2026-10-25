@@ -121,7 +121,7 @@ h3 { font-size:12.5px; color:var(--gold); margin:8px 0 3px; font-weight:normal; 
 .legend { font-size:10px; }
 .legend.exact { color:var(--good); }
 .legend.estimate { color:#e0b979; }
-.hint { position:absolute; bottom:4px; left:16px; font-size:10px; color:#6f6857; }
+/* The hint is a footer now (.foot): absolutely positioned text over the content read as a rendering fault. */
 /* The methods picker: the method list stays on the left so choosing never scrolls the choices away. */
 .split { display:grid; grid-template-columns:330px 1fr; gap:10px; align-items:start; }
 .split .left { border-right:1px solid #2c2a1e; padding-right:8px; }
@@ -272,12 +272,34 @@ body::before {
 @keyframes rise { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
 .coin { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:5px; vertical-align:-1px;
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.06); }
+/* Layout: a header, a framed text area, a footer. The frame makes the readable region obvious, and the footer
+   can never sit on top of a line of text - which is exactly what the old absolute hint did. */
+html, body { overflow:hidden; }
+body { display:block; }
+.shell { display:flex; flex-direction:column; height:100%; box-sizing:border-box; }
+/* height:auto is the whole fix: the original .panel rule sets height:100%, which in a flex column squeezed the
+   framed content to zero height while the DOM happily reported a rendered card. */
+.panel { flex:none; height:auto; padding:8px 14px 0; overflow:visible; }
+.content {
+  flex:1 1 auto; min-height:0; overflow-y:auto; box-sizing:border-box;
+  margin:2px 12px 0; padding:8px 10px 6px;
+  border:1px solid var(--line); border-radius:8px;
+  background:linear-gradient(180deg, rgba(255,255,255,.012), transparent 120px);
+  scrollbar-width:thin; scrollbar-color:var(--line2) transparent;
+}
+.content::-webkit-scrollbar { width:8px; }
+.content::-webkit-scrollbar-thumb { background:var(--line2); border-radius:4px; }
+.foot {
+  flex:none; margin-top:6px; padding:5px 16px 7px; border-top:1px solid var(--line);
+  font-size:10.5px; color:var(--dim); letter-spacing:.01em; background:rgba(0,0,0,.18);
+}
 @media (prefers-reduced-motion: reduce) {
   * { transition:none !important; animation:none !important; }
   body::before { display:none; }
 }
 </style></head>
-<body><div class="panel">
+<body><div class="shell">
+  <div class="panel">
   <div class="title"><span id="panel-title"></span><span id="league"></span><span class="lang-switch">
     <span class="tab" id="lang-ru" onclick="chooseLanguage('ru')">RU</span>
     <span class="tab" id="lang-en" onclick="chooseLanguage('en')">EN</span>
@@ -287,10 +309,15 @@ body::before {
     <div class="tab" id="tab-methods" onclick="showTab('methods')"></div>
     <div class="tab" id="tab-guide" onclick="showTab('guide')"></div>
   </div>
-  <div id="step-view"></div>
-  <div id="methods-view" style="display:none"></div>
-  <div id="guide-view" style="display:none"></div>
-  <div class="hint" id="panel-hint"></div>
+  </div>
+  <!-- The text lives inside a frame of its own, and the hint is a real footer rather than an absolutely positioned
+       line over the content: the old `.hint` sat on top of the last line of text and looked like a defect. -->
+  <div class="content" id="content">
+    <div id="step-view"></div>
+    <div id="methods-view" style="display:none"></div>
+    <div id="guide-view" style="display:none"></div>
+  </div>
+  <div class="foot" id="panel-hint"></div>
 </div><script>
 // ---- chrome text -------------------------------------------------------------------------------------
 // Every word of the page's own chrome lives in this table, in both languages: the header, the tabs, the
