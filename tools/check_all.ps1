@@ -44,6 +44,36 @@ Step "modifier price cache (node self-test, no network)" {
     & node tools\lib\mod_cache.js --self-test
     if ($LASTEXITCODE -ne 0) { throw "mod cache self-test failed" }
 }
+Step "game probe: refuses without permission, points stay inside the inventory" {
+    $exe = Join-Path $PSScriptRoot '..\overlay\bin\Debug\net8.0-windows\Poe2CraftOverlay.exe'
+    if (-not (Test-Path $exe)) {
+        $exe = Join-Path $PSScriptRoot '..\overlay\bin\Release\net8.0-windows\Poe2CraftOverlay.exe'
+    }
+    if (-not (Test-Path $exe)) { throw "панель не собрана" }
+    $report = Join-Path (Split-Path $exe) 'probe-report.txt'
+    Remove-Item $report -ErrorAction SilentlyContinue
+    $old = $env:POE2CRAFT_PROBE
+    Remove-Item Env:POE2CRAFT_PROBE -ErrorAction SilentlyContinue
+    & $exe --probe-capture | Out-Null
+    for ($i = 0; $i -lt 40 -and -not (Test-Path $report); $i++) { Start-Sleep -Milliseconds 250 }
+    $refused = (Get-Content $report -Encoding UTF8 -ErrorAction SilentlyContinue) -join ' '
+    if ($refused -notmatch 'POE2CRAFT_PROBE is not 1') { throw "зонд не отказался без разрешения: $refused" }
+    if ($old) { $env:POE2CRAFT_PROBE = $old }
+    Write-Host "PASS probe refuses without POE2CRAFT_PROBE=1"
+
+    $pointsFile = Join-Path (Split-Path $exe) 'probe-candidates.txt'
+    Remove-Item $pointsFile -ErrorAction SilentlyContinue
+    & $exe --probe-candidates 1920 1080 | Out-Null
+    for ($i = 0; $i -lt 40 -and -not (Test-Path $pointsFile); $i++) { Start-Sleep -Milliseconds 250 }
+    $points = Get-Content $pointsFile -Encoding UTF8 | Where-Object { $_ -match '^\d+,\d+$' }
+    if (-not $points -or $points.Count -lt 4) { throw "точек наведения нет" }
+    foreach ($point in $points) {
+        $parts = $point -split ','
+        $x = [int]$parts[0]; $y = [int]$parts[1]
+        if ($x -gt 640 -or $y -lt 216 -or $y -gt 648) { throw "точка вне области инвентаря: $point" }
+    }
+    Write-Host "PASS probe hover points stay inside the inventory ($($points.Count) points)"
+}
 Step "market refusal reasons have Russian" {
     & python tools\check_market_reasons.py
 }

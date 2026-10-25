@@ -22,13 +22,19 @@ internal static class Program
         // they cannot run while the real panel is open - which is exactly when one of them is wanted.
         var positionTest = args.Contains("--test-position");
         var liveCheck = args.Contains("--test-live");
+        // The bounded game probe. It presses keys into the game, so it is never part of a normal launch: it needs
+        // the flag AND POE2CRAFT_PROBE=1, and it refuses to run beside an open panel.
+        var probeCapture = args.Contains("--probe-capture");
+        // Geometry of the hover points without touching the game: the one part of the probe that can be checked
+        // offline, and the part that decides where the cursor goes.
+        var probeCandidates = args.Contains("--probe-candidates");
         var isFirstInstance = true;
         Mutex? single = null;
-        if (!positionTest && !liveCheck)
+        if (!positionTest && !liveCheck && !probeCapture)
         {
             single = new Mutex(true, "Poe2CraftOverlay.SingleInstance", out isFirstInstance);
         }
-        if (!positionTest && !isFirstInstance)
+        if (!positionTest && !probeCapture && !isFirstInstance)
         {
             if (liveCheck)
             {
@@ -54,6 +60,19 @@ internal static class Program
         if (liveCheck)
         {
             RunLiveCheck();
+            return;
+        }
+        if (probeCandidates)
+        {
+            // The one part of the probe that can be checked without the game: where the cursor would go.
+            RunProbeCandidates(args);
+            return;
+        }
+        if (probeCapture)
+        {
+            // The bounded game probe: no window of its own, a report next to the exe, and the same
+            // POE2CRAFT_PROBE=1 gate the probe itself checks before touching the game.
+            RunProbeCapture();
             return;
         }
         if (!shot)
@@ -157,6 +176,52 @@ internal static class Program
     // window itself draw the card". That needs a WebView2 window on a desktop, so it is a mode of this
     // executable: it asserts on the live DOM, keeps two pictures as evidence and exits with 0 or 1.
     // It writes live-check.txt next to the exe, because a WinExe has no console to print to.
+    /// Print the hover points for a window of this size, without the game and without moving the cursor.
+    private static void RunProbeCandidates(string[] args)
+    {
+        var numbers = args.Where(a => int.TryParse(a, out _)).Select(int.Parse).ToArray();
+        var width = numbers.Length > 0 ? numbers[0] : 1920;
+        var height = numbers.Length > 1 ? numbers[1] : 1080;
+        var lines = new List<string> { $"window: 0,0 {width}x{height}" };
+        foreach (var (x, y) in ProbeCapture.Candidates(0, 0, width, height))
+        {
+            lines.Add($"{x},{y}");
+        }
+        lines.Add($"points: {ProbeCapture.Candidates(0, 0, width, height).Count}");
+        try
+        {
+            System.IO.File.WriteAllLines(System.IO.Path.Combine(AppContext.BaseDirectory, "probe-candidates.txt"),
+                lines, new System.Text.UTF8Encoding(false));
+        }
+        catch (Exception error)
+        {
+            Log.Write("probe candidates: " + error.Message);
+        }
+        foreach (var line in lines)
+        {
+            Log.Write("probe candidates: " + line);
+        }
+    }
+    /// The bounded probe: writes its report next to the exe and to the log, and creates no window of its own.
+    private static void RunProbeCapture()
+    {
+        Log.Write("probe: start");
+        var report = ProbeCapture.Run();
+        foreach (var line in report)
+        {
+            Log.Write("probe: " + line);
+        }
+        try
+        {
+            var path = System.IO.Path.Combine(AppContext.BaseDirectory, "probe-report.txt");
+            System.IO.File.WriteAllLines(path, report, new System.Text.UTF8Encoding(false));
+            Log.Write("probe: report written to " + path);
+        }
+        catch (Exception error)
+        {
+            Log.Write("probe: could not write the report: " + error.Message);
+        }
+    }
     private static void RunLiveCheck()
     {
         var form = new PanelForm(false, liveCheck: true);
