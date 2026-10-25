@@ -965,6 +965,21 @@ Hotkeys.Install(this,
         {
             var captureWatch = System.Diagnostics.Stopwatch.StartNew();
             var before = Native.GetClipboardSequenceNumber();
+            // What the player had on their clipboard before we pressed Ctrl+C. The game overwrites it with the
+            // item text, and emptying it afterwards - which is what the panel used to do - silently threw that
+            // away. It is handed back once the item has been read.
+            string? borrowedClipboard = null;
+            try
+            {
+                if (Clipboard.ContainsText())
+                {
+                    borrowedClipboard = Clipboard.GetText();
+                }
+            }
+            catch (Exception error)
+            {
+                Log.Write("capture: could not read the clipboard before borrowing it: " + error.Message);
+            }
             uint after;
             // The panel may own the focus after being dragged or resized, and then Ctrl+C lands in it.
             // Handing the focus back to the game first is what makes a single Ctrl+Q work every time.
@@ -1023,15 +1038,24 @@ Hotkeys.Install(this,
             Reveal("capture");
             await ShowItemAsync(itemText);
 
-            // The text is kept for diagnosis, and the clipboard is emptied afterwards: a stale entry
-            // left over from the previous capture is what once made the next one look like the game
-            // had copied nothing at all.
+            // The text is kept for diagnosis, and the player's own clipboard is handed back: the game replaced it
+            // with the item when it answered Ctrl+C, and leaving our capture there (or an empty buffer) is the
+            // program taking something that is not its own. What cannot be handed back is a non-text clipboard -
+            // .NET text-only access lost it before this code ever saw it, and the log says so.
             try
             {
                 var keep = System.IO.Path.Combine(_engine.Root, "src", "last_item.txt");
                 System.IO.File.WriteAllText(keep, itemText, new System.Text.UTF8Encoding(false));
-                Clipboard.Clear();
-                Log.Write("capture: saved to src\\last_item.txt, clipboard cleared");
+                if (borrowedClipboard is null)
+                {
+                    Clipboard.Clear();
+                    Log.Write("capture: saved to src\\last_item.txt, clipboard was not text and is cleared");
+                }
+                else
+                {
+                    Clipboard.SetText(borrowedClipboard);
+                    Log.Write($"capture: saved to src\\last_item.txt, clipboard restored ({borrowedClipboard.Length} chars)");
+                }
             }
             catch (Exception error)
             {
@@ -1141,6 +1165,12 @@ Hotkeys.Install(this,
             Clipboard.SetText(itemText);
             await CaptureCoreAsync(sendKeys: false);
             await Task.Delay(700);
+
+            // The player's clipboard is borrowed to simulate the game's copy, so the capture must hand it back.
+            // It used to be cleared instead, which silently ate whatever the player had copied before Ctrl+Q.
+            Check("захват вернул буфер обмена владельцу",
+                Normalise(ClipboardText() ?? "") == Normalise(itemText),
+                (ClipboardText() ?? "").Length + " символов в буфере");
 
             var capturedCard = await ReadDomTextAsync("step-view");
             Check("захват перерисовал карточку на этот предмет",
