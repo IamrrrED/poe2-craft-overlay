@@ -34,6 +34,7 @@ internal static class Program
         var panelShots = args.Contains("--panel-shots");
         // One calibrated click that opens the stash, proved by a pair of screenshots.
         var openStash = args.Contains("--open-stash");
+        var stashTabs = args.Contains("--stash-tabs");
         // Geometry of the hover points without touching the game: the one part of the probe that can be checked
         // offline, and the part that decides where the cursor goes.
         var probeCandidates = args.Contains("--probe-candidates");
@@ -69,6 +70,21 @@ internal static class Program
         if (liveCheck)
         {
             RunLiveCheck();
+            return;
+        }
+        if (stashTabs)
+        {
+            var dirTabs = AppContext.BaseDirectory;
+            // Open the stash first (label scan + one click), then walk the tabs: the whole chain in one run.
+            var openLines = StashOpener.Run(System.IO.Path.Combine(dirTabs, "stash-point.ini"),
+                System.IO.Path.Combine(dirTabs, "stash-before.png"), System.IO.Path.Combine(dirTabs, "stash-after.png"));
+            var tabLines = openLines.Concat(new[] { "--- tabs ---" }).Concat(StashTabs.Run(dirTabs)).ToList();
+            foreach (var line in tabLines)
+            {
+                Log.Write("tabs: " + line);
+            }
+            System.IO.File.WriteAllLines(System.IO.Path.Combine(dirTabs, "tabs-report.txt"), tabLines,
+                new System.Text.UTF8Encoding(false));
             return;
         }
         if (openStash)
