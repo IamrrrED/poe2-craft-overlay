@@ -29,6 +29,11 @@ internal static class Program
         var inspect = args.Contains("--inspect");
         // Zone from the game log, printed and exit: the half of the sweep that can be checked without acting.
         var zoneCheck = args.Contains("--zone-check");
+        // Diagnostics for anything that has to LOOK at the game: raise the game, capture, act, capture again.
+        var focusTest = args.Contains("--focus-test");
+        var panelShots = args.Contains("--panel-shots");
+        // One calibrated click that opens the stash, proved by a pair of screenshots.
+        var openStash = args.Contains("--open-stash");
         // Geometry of the hover points without touching the game: the one part of the probe that can be checked
         // offline, and the part that decides where the cursor goes.
         var probeCandidates = args.Contains("--probe-candidates");
@@ -64,6 +69,31 @@ internal static class Program
         if (liveCheck)
         {
             RunLiveCheck();
+            return;
+        }
+        if (openStash)
+        {
+            var dir = AppContext.BaseDirectory;
+            var lines = StashOpener.Run(System.IO.Path.Combine(dir, "stash-point.ini"),
+                System.IO.Path.Combine(dir, "stash-before.png"), System.IO.Path.Combine(dir, "stash-after.png"));
+            foreach (var line in lines)
+            {
+                Log.Write("stash: " + line);
+            }
+            System.IO.File.WriteAllLines(System.IO.Path.Combine(dir, "stash-report.txt"), lines,
+                new System.Text.UTF8Encoding(false));
+            return;
+        }
+        if (panelShots)
+        {
+            RunPanelShots();
+            return;
+        }
+        if (focusTest)
+        {
+            var raised = GameFocus.ForceBring();
+            System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "focus-test.txt"),
+                raised ? "PASS the game is in front" : "FAIL the game could not be brought to the front");
             return;
         }
         if (zoneCheck)
@@ -220,6 +250,47 @@ internal static class Program
             Log.Write("probe candidates: " + line);
         }
     }
+    /// Capture the screen, press the inventory key once, capture again, and put the panel back.
+    ///
+    /// These images are how "is a panel open" gets answered from pixels instead of a guess: the closed frame and the
+    /// open frame are the two things a detector has to tell apart, and both come from the real client.
+    private static void RunPanelShots()
+    {
+        GameFocus.ForceBring();
+        Thread.Sleep(300);
+        var dir = AppContext.BaseDirectory;
+        Shot(System.IO.Path.Combine(dir, "vision-before.png"));
+        PressInventory();
+        Thread.Sleep(500);
+        Shot(System.IO.Path.Combine(dir, "vision-after.png"));
+        // The key is a toggle, so the same press closes what it opened and leaves the UI as it was.
+        PressInventory();
+        Thread.Sleep(220);
+        Shot(System.IO.Path.Combine(dir, "vision-restored.png"));
+        Log.Write("panel shots: vision-before.png, vision-after.png, vision-restored.png");
+    }
+
+    private static void PressInventory()
+    {
+        keybd_event(0x49, 0x17, 0, UIntPtr.Zero);
+        Thread.Sleep(40);
+        keybd_event(0x49, 0x17, 0x0002, UIntPtr.Zero);
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extra);
+
+    private static void Shot(string path)
+    {
+        var bounds = System.Windows.Forms.SystemInformation.VirtualScreen;
+        using var bitmap = new System.Drawing.Bitmap(bounds.Width, bounds.Height);
+        using (var graphics = System.Drawing.Graphics.FromImage(bitmap))
+        {
+            graphics.CopyFromScreen(bounds.Left, bounds.Top, 0, 0, bitmap.Size);
+        }
+        bitmap.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+    }
+
     /// Print the zone as the game's own log reports it, for one file or for the live log.
     private static void RunZoneCheck(string[] args)
     {
