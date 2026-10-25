@@ -1921,10 +1921,35 @@ local function dispatch(name, args)
 		-- Which candidate is worth chasing, and what raises its chance. Built from the pool the report already
 		-- carries, so the card highlights a modifier the engine itself ranks - and only attaches a boost when a
 		-- technique names that family. Nothing here invents a probability or a price.
-		report.valueHints = ValueHint.forWanted(
-			(report.modPool and report.modPool.wanted) or { },
-			{ minBoost = tonumber(args.value_boost) })
-		report.valueHintText = ValueHint.summary(report.valueHints, languageOf(args))
+		--
+		-- Only when there is still something to do. An item that is corrupted, sanctified or full has no next
+		-- modifier to chase, and a card that lists "modifiers you could get" on such an item describes a choice the
+		-- player no longer has. The reason is reported instead of silence, so the panel can say why it stayed quiet.
+		local stepState = report.state or { }
+		local openSlots = (tonumber(stepState.openPrefixes) or 0) + (tonumber(stepState.openSuffixes) or 0)
+		local changesForbidden = stepState.corrupted == true or stepState.sanctified == true
+		if changesForbidden or openSlots <= 0 then
+			report.valueHints = nil
+			report.valueHintText = nil
+			-- One key, already in the reply's language: the bridge drops *Ru/*En twins, so a pair here would
+			-- leave the card with nothing in one of the languages.
+			local english = tostring(languageOf(args) or ""):lower():sub(1, 2) == "en"
+			if changesForbidden then
+				report.valueHintsBlocked = english
+					and "the item cannot be changed, so raising a chance means nothing"
+					or "предмет нельзя изменить: подсказка о повышении шанса не имеет смысла"
+			else
+				report.valueHintsBlocked = english
+					and "no free modifier slot: free one first, otherwise there is nothing to raise"
+					or "свободных мест под мод нет: сначала освободите слот, иначе повышать нечего"
+			end
+		else
+			report.valueHints = ValueHint.forWanted(
+				(report.modPool and report.modPool.wanted) or { },
+				{ minBoost = tonumber(args.value_boost) })
+			report.valueHintText = ValueHint.summary(report.valueHints, languageOf(args))
+			report.valueHintsBlocked = nil
+		end
 		return report, nil
 	end
 

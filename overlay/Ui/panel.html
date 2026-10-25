@@ -1607,7 +1607,9 @@ window.showCoach=function(report, analysis, client, guide){
     let block='<div class="step-why">';
     valuable.slice(0,3).forEach(function(mod){
       const name=mod.bestText||mod.family||'';
-      const chance=(typeof mod.chance==='number')?(' · '+(mod.chance*100).toFixed(mod.chance<0.1?1:0)+'%'):'';
+      // chance arrives as a PERCENTAGE from the engine (Advisor computes e.g. 100/affixes), so it is printed as is;
+      // multiplying it by 100 here is what turned 12.86% into 1286% on the card.
+      const chance=(typeof mod.chance==='number')?(' · '+(mod.chance<10?mod.chance.toFixed(1):Math.round(mod.chance))+'%'):'';
       block+='<div class="branch ok">'+esc(name)+esc(chance)+'</div>';
       (mod.boosts||[]).slice(0,1).forEach(function(boost){
         const effect=showEn?(boost.effectEn||boost.effect):(boost.effect||boost.effectEn);

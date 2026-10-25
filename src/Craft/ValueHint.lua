@@ -66,7 +66,9 @@ function ValueHint.boostsFor(family, boosts)
 end
 
 --- Split the wanted list into "worth chasing" and "the rest", and give each valuable one its boost.
--- @param wanted entries from ModPool's `wanted` (fields: side, family, bestText, chance, score, boost)
+-- @param wanted entries from ModPool's `wanted` (fields: side, family, bestText, chance, score, boost).
+--   `chance` is a PERCENTAGE, the same unit the advisor uses (Advisor computes 100/affixes and 100/prefixCount),
+--   so it travels to the card untouched - a fraction would need converting, a percentage must not be.
 -- @param options { minBoost = number, boosts = table }
 -- @return { valuable = {...}, others = {...}, boosts = {...} } - never nil, so the card can draw it unconditionally
 function ValueHint.forWanted(wanted, options)

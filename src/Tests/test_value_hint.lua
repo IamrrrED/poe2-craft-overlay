@@ -6,9 +6,9 @@ local ValueHint = require("Craft.ValueHint")
 
 return function(h)
 	local wanted = {
-		{ side = "suffix", family = "life", bestText = "+# to maximum Life", chance = 0.12, score = 9, boost = 2.0 },
-		{ side = "suffix", family = "resistance", bestText = "+#% to Fire Resistance", chance = 0.3, score = 6, boost = 1.4 },
-		{ side = "prefix", family = "mana", bestText = "+# to maximum Mana", chance = 0.25, score = 2, boost = 1.0 },
+		{ side = "suffix", family = "life", bestText = "+# to maximum Life", chance = 12.5, score = 9, boost = 2.0 },
+		{ side = "suffix", family = "resistance", bestText = "+#% to Fire Resistance", chance = 30, score = 6, boost = 1.4 },
+		{ side = "prefix", family = "mana", bestText = "+# to maximum Mana", chance = 25, score = 2, boost = 1.0 },
 	}
 
 	local hints = ValueHint.forWanted(wanted)
@@ -29,7 +29,9 @@ return function(h)
 	H.eq("value: an empty family gets no boost", #ValueHint.boostsFor(""), 0)
 
 	-- A hint never invents a probability: the chance printed is the one handed in.
-	H.eq("value: the chance is passed through", hints.valuable[2].chance, 0.12)
+	H.eq("value: the chance is passed through as a percentage", hints.valuable[2].chance, 12.5)
+	H.check("value: and it stays a percentage, not a fraction", hints.valuable[2].chance > 1,
+		tostring(hints.valuable[2].chance))
 
 	-- A caller can raise the bar and silence almost everything.
 	local strict = ValueHint.forWanted(wanted, { minBoost = 1.9 })

@@ -1,12 +1,13 @@
 -- PoE2 Craft Overlay : Tests/test_value_hint_wiring.lua
--- The card gets its highlight from craft_step, so this checks the answer itself rather than the module in isolation:
--- the step must carry valueHints, the summary must be a sentence, and the mods it highlights must be the ones the
--- engine's own pool ranked - no second ranking invented on the way to the card.
+-- The card may only speak about chasing a modifier when a modifier can still be added. That is what this checks: on an
+-- item that is corrupted, the step must carry no hints at all and must explain why, in both languages. The positive
+-- case (which modifiers count as valuable, and in what order) is pinned in test_value_hint.lua, where no item text is
+-- involved - an item that cannot be crafted is exactly where a wrong "chase this" hint would do damage.
 return function()
 	local H = require("Tests.harness")
 	local Api = require("Mcp.api")
 
-	local GLOVES = table.concat({
+	local CORRUPTED = table.concat({
 		"Item Class: Gloves",
 		"Rarity: Rare",
 		"Doom Grip",
@@ -21,49 +22,19 @@ return function()
 		"Corrupted",
 	}, "\n")
 
-	local answer, errorText = Api.call("craft_step", { item_text = GLOVES, lang = "ru", goal = "life" })
-	H.check("wiring: craft_step answered", answer ~= nil, tostring(errorText))
+	local answer, errorText = Api.call("craft_step", { item_text = CORRUPTED, lang = "ru", goal = "life" })
+	H.check("gate: craft_step answered", answer ~= nil, tostring(errorText))
 	if not answer then
 		return
 	end
-
-	H.check("wiring: the step carries valueHints", type(answer.valueHints) == "table", type(answer.valueHints))
-	H.check("wiring: it has a valuable list", type(answer.valueHints.valuable) == "table",
-		type(answer.valueHints and answer.valueHints.valuable))
-	H.check("wiring: it has an others list", type(answer.valueHints.others) == "table",
-		type(answer.valueHints and answer.valueHints.others))
-
-	-- The summary is what the card prints, so it must exist when something is worth chasing and stay empty otherwise.
-	local valuable = answer.valueHints.valuable or { }
-	if #valuable > 0 then
-		H.check("wiring: a valuable mod produces a sentence", type(answer.valueHintText) == "string"
-			and #answer.valueHintText > 10, tostring(answer.valueHintText))
-		local first = valuable[1]
-		H.check("wiring: the first valuable mod names a family", tostring(first.family or "") ~= "",
-			tostring(first.family))
-		H.check("wiring: it carries a chance from the pool", tonumber(first.chance) ~= nil,
-			tostring(first.chance))
-	else
-		H.eq("wiring: nothing valuable means no sentence", answer.valueHintText, nil)
-	end
-
-	-- Whatever is highlighted must also appear in the pool the answer carries: one ranking, not two.
-	local pool = answer.modPool or { }
-	local poolWanted = pool.wanted or { }
-	if #poolWanted > 0 and #valuable > 0 then
-		local families = { }
-		for _, entry in ipairs(poolWanted) do
-			families[tostring(entry.family)] = true
-		end
-		H.check("wiring: the highlighted family comes from the pool", families[tostring(valuable[1].family)] == true,
-			tostring(valuable[1].family))
-	end
-
-	-- A higher bar must not increase the number of highlighted mods.
-	local strict = Api.call("craft_step", { item_text = GLOVES, lang = "ru", value_boost = 2.5 })
-	if strict and strict.valueHints then
-		H.check("wiring: a strict threshold does not highlight more",
-			#(strict.valueHints.valuable or { }) <= #valuable,
-			tostring(#(strict.valueHints.valuable or { })) .. " > " .. tostring(#valuable))
-	end
+	H.eq("gate: a corrupted item carries no hints", answer.valueHints, nil)
+	H.eq("gate: and no summary sentence", answer.valueHintText, nil)
+	H.check("gate: it explains the silence", type(answer.valueHintsBlocked) == "string"
+		and #answer.valueHintsBlocked > 10, tostring(answer.valueHintsBlocked))
+	local english = Api.call("craft_step", { item_text = CORRUPTED, lang = "en", goal = "life" })
+	H.check("gate: the explanation follows the reply language", english ~= nil
+		and type(english.valueHintsBlocked) == "string" and english.valueHintsBlocked:find("item", 1, true) ~= nil,
+		english and tostring(english.valueHintsBlocked))
+	H.check("gate: the reason names the item, not a modifier", answer.valueHintsBlocked:find("предмет", 1, true) ~= nil,
+		tostring(answer.valueHintsBlocked))
 end
