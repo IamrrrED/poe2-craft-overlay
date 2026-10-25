@@ -550,8 +550,16 @@ Hotkeys.Install(this,
             {
                 foreach (var entry in wanted.EnumerateArray())
                 {
-                    if (entry.TryGetProperty("bestText", out var text)
-                        && text.ValueKind == System.Text.Json.JsonValueKind.String)
+                    // The trade site matches by stat template ("+# to maximum Life"), so the template form is what
+                    // gets priced. The rolled text ("+(120-149) to maximum Life") resolves to no stat at all, and
+                    // the first version of this pass showed "no market answer" for every modifier because of it.
+                    System.Text.Json.JsonElement text;
+                    if (!entry.TryGetProperty("tradeText", out text)
+                        && !entry.TryGetProperty("bestText", out text))
+                    {
+                        continue;
+                    }
+                    if (text.ValueKind == System.Text.Json.JsonValueKind.String)
                     {
                         var value = text.GetString();
                         if (!string.IsNullOrWhiteSpace(value))

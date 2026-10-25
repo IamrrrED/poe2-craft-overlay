@@ -49,6 +49,16 @@ ModPool.goalFamilies = {
 -- the player asked for something they did not.
 ModPool.defaultBoosts = { resist = 1.5, life = 1.4, es = 1.3, damage = 1.2, speed = 1.1, crit = 1.1 }
 
+-- The trade site matches stats by their template ("Adds # to # Cold damage to Attacks"), never by the rolled text
+-- ("Adds (21-24) to (32-37) ..."). Without this conversion every search answered "none of the modifiers resolved to
+-- a trade stat", which reads like "no market" - the first calibration run failed exactly that way.
+local function tradeText(text)
+	local value = tostring(text or "")
+	value = value:gsub("%(%s*%-?%d+%.?%d*%s*%-%s*%-?%d+%.?%d*%s*%)", "#")
+	value = value:gsub("%-?%d+%.?%d*", "#")
+	return value
+end
+
 local function familyOf(text)
 	local lower = tostring(text or ""):lower()
 	for _, family in ipairs(ModPool.families) do
@@ -137,6 +147,8 @@ function ModPool.forItem(item, opts)
 			local entry = {
 				family = family.id,
 				bestText = text,
+				-- Untranslated template form for the trade site: prices are looked up by stat template.
+				tradeText = tradeText(group.bestText),
 				bestTextSource = (text ~= group.bestText) and "dictionary" or "game",
 				bestTier = group.bestTier,
 				tierCount = group.tierCount,
@@ -177,6 +189,7 @@ function ModPool.forItem(item, opts)
 					side = side,
 					family = group.family,
 					bestText = group.bestText,
+					tradeText = group.tradeText,
 					bestTier = group.bestTier,
 					chance = group.chance,
 					tierCount = group.tierCount,
