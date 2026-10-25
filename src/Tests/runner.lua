@@ -65,6 +65,7 @@ local MODULES = {
 	"Tests.test_mentor",
 	"Tests.test_recipes",
 	"Tests.test_mod_pool",
+	"Tests.test_stash_tabs",
 	"Tests.test_annotation_split",
 	"Tests.test_language",
 	"Tests.test_language_prose",
