@@ -26,6 +26,7 @@ local Essences = require("Item.Essences")
 local Runes = require("Item.Runes")
 local Runeforging = require("Item.Runeforging")
 local Prices = require("Craft.Prices")
+local ValueHint = require("Craft.ValueHint")
 local Stage = require("Craft.Stage")
 local Claims = require("Craft.Claims")
 local Techniques = require("Craft.Techniques")
@@ -1917,6 +1918,13 @@ local function dispatch(name, args)
 		-- What can still land on this item, grouped and ranked for the goal. Lives in "показать всё", not on the
 		-- card: the pool is 40+ entries and the card is for one action.
 		report.modPool = ModPool.forItem(parsed, { goal = args.goal, lang = languageOf(args) })
+		-- Which candidate is worth chasing, and what raises its chance. Built from the pool the report already
+		-- carries, so the card highlights a modifier the engine itself ranks - and only attaches a boost when a
+		-- technique names that family. Nothing here invents a probability or a price.
+		report.valueHints = ValueHint.forWanted(
+			(report.modPool and report.modPool.wanted) or { },
+			{ minBoost = tonumber(args.value_boost) })
+		report.valueHintText = ValueHint.summary(report.valueHints, languageOf(args))
 		return report, nil
 	end
 

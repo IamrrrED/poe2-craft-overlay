@@ -184,4 +184,31 @@ function PriceCache.save(store, path, writeFile)
 	return ok
 end
 
+--- How old a price must be before the card mentions it at all.
+-- Until this point the number is shown as it is: a marker on every card is noise, and the whole point of the cache is
+-- to stay out of the way. Past it the number may no longer be today's market, so silence would be a lie.
+PriceCache.CARD_NOTE_HOURS = 6
+
+--- The card line for a cached price, or nil while the price is fresh enough to show without comment.
+-- @return nil or { text = ..., ageHours = ..., stale = true, refreshOffered = true, league = ..., query = ... }
+function PriceCache.cardNote(record, ageHours, thresholdHours)
+	if type(record) ~= "table" then
+		return nil
+	end
+	local age = tonumber(ageHours)
+	if not age then
+		return nil
+	end
+	local threshold = tonumber(thresholdHours) or PriceCache.CARD_NOTE_HOURS
+	if age <= threshold then
+		return nil
+	end
+	local described = PriceCache.describe(record, age)
+	if not described then
+		return nil
+	end
+	described.refreshOffered = true
+	described.stale = true
+	return described
+end
 return PriceCache

@@ -77,4 +77,20 @@ return function(h)
 	H.eq("cache: a broken file loads as an empty cache", type(broken), "table")
 	local missing = PriceCache.load("price-cache.lua", function() return nil end)
 	H.eq("cache: a missing file loads as an empty cache", type(missing), "table")
-end
+	-- The card stays silent while the price is fresh, and speaks only when it may no longer be today's market.
+	H.eq("cache: six hours is the point where the card speaks", PriceCache.CARD_NOTE_HOURS, 6)
+	local young = PriceCache.cardNote({ price = 5, league = "Standard" }, 1.5)
+	H.eq("cache: a fresh price gives the card no line", young, nil)
+	local edge = PriceCache.cardNote({ price = 5, league = "Standard" }, 6)
+	H.eq("cache: exactly six hours is still silent", edge, nil)
+	local old = PriceCache.cardNote({ price = 5, league = "Standard", query = "Doom Shroud" }, 9)
+	H.check("cache: an older price gives a line", old ~= nil, "nil")
+	H.check("cache: the line offers a refresh", old and old.refreshOffered == true, tostring(old and old.refreshOffered))
+	H.check("cache: the line is marked stale", old and old.stale == true, tostring(old and old.stale))
+	H.check("cache: the line keeps the query it came from", old and old.query == "Doom Shroud", tostring(old and old.query))
+	H.check("cache: the line says the word cache", old and old.text:find("кеш", 1, true) ~= nil, old and old.text)
+	H.eq("cache: no record means no line", PriceCache.cardNote(nil, 20), nil)
+	H.eq("cache: an unreadable age means no line", PriceCache.cardNote({ price = 5 }, nil), nil)
+	-- A caller can ask for a different point, and eight hours must silence a stricter threshold of twelve.
+	local strict = PriceCache.cardNote({ price = 5 }, 8, 12)
+	H.eq("cache: a stricter threshold silences an eight hour price", strict, nil)end
