@@ -147,4 +147,40 @@ return function(h)
 	H.check("recipes: an unknown base gets no specific class",
 		Recipes.classFromBase("Mysterious Thing") == nil,
 		tostring(Recipes.classFromBase("Mysterious Thing")))
+-- 7. The class comes from the base table's spawn tags, not from a dictionary of printed names. This walks the
+	-- whole corpus and proves it: every base the table tags as boots/gloves/helmet/body/shield/weapon must resolve
+	-- to the class our routes speak. A regression here silently degrades advice for a whole item class.
+	local Bases = require("Item.Bases")
+	local table_ = require("Data.bases")
+	local seen, wrong, unmapped = 0, { }, { }
+	for base, tags in pairs(table_.tags or { }) do
+		seen = seen + 1
+		local class = Recipes.classFromTags(base)
+		local got = tostring(tags)
+		local expected = nil
+		if got:find("boots", 1, true) then expected = "boots"
+		elseif got:find("gloves", 1, true) then expected = "gloves"
+		elseif got:find("body_armour", 1, true) then expected = "body armours"
+		elseif got:find("helmet", 1, true) then expected = "helmets"
+		elseif got:find("shield", 1, true) then expected = "shields"
+		-- "crossbow" contains "bow", so the narrower tag has to be tested first - the test itself had this wrong
+		-- and reported nine crossbows as mismatched while the code was right.
+		elseif got:find("crossbow", 1, true) then expected = "crossbows"
+		elseif got:find("bow", 1, true) then expected = "bows"
+		elseif got:find("sceptre", 1, true) then expected = "sceptres"
+		elseif got:find("wand", 1, true) then expected = "wands"
+		elseif got:find("spear", 1, true) then expected = "spears"
+		end
+		if expected and class ~= expected then
+			wrong[#wrong + 1] = base .. ": " .. tostring(class) .. " != " .. expected
+		end
+		if expected == nil and class == nil and (got:find("weapon", 1, true) or got:find("armour", 1, true)) then
+			unmapped[#unmapped + 1] = base .. " [" .. got .. "]"
+		end
+	end
+	H.check("recipes: the class corpus was actually read", seen > 1000, tostring(seen))
+	H.check("recipes: no tagged base resolves to the wrong class", #wrong == 0,
+		table.concat(wrong, "; "):sub(1, 300))
+	H.check("recipes: an armour or weapon base always resolves to some class", #unmapped == 0,
+		tostring(#unmapped) .. " без класса: " .. table.concat(unmapped, "; "):sub(1, 300))
 end
