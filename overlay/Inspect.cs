@@ -4,24 +4,27 @@ using System.Runtime.InteropServices;
 namespace Poe2CraftOverlay;
 
 /// <summary>
-/// Reads what the player already owns and asks the engine to judge it - value-neutral by design.
+/// Reads what the player already owns and asks the engine what to make of it.
 ///
-/// The line this draws: the sweep may READ and may NAVIGATE. It may never change what the character owns, which
-/// means no action that picks up, moves, sells, buys, crafts or destroys anything. Reading is hovering plus Ctrl+C.
-/// Navigating is the inventory key, and - only inside a hideout, where a stray click cannot pull a monster or walk
-/// the character into a pack - clicks on stash tabs and on an item in the grid, each of which merely selects or
-/// moves the pointer within a panel the player already opened.
+/// The one rule that shapes all of it: <b>no clicks, ever</b>. Not on an item slot, not on a stash tab. A click is
+/// the only input in this game that can change what the character owns - it picks an item up, and the next click
+/// can put it down somewhere else or drop it on the ground. On 2026-10-25 a grid click in the inventory nearly
+/// dropped an item that way, and the customer's rule since then is absolute. Reading never needed a click: hovering
+/// a slot plus Ctrl+C copies the item's text, and that is the whole vocabulary here besides one inventory key press.
 ///
-/// Hard limits: one sweep per invocation, at most <see cref="MaxReads"/> reads and <see cref="MaxClicks"/> clicks,
-/// a hard timeout, a refusal without POE2CRAFT_INSPECT=1, a refusal while a panel is running, an abort when the
-/// foreground window stops being the game, and an abort when Escape is pressed.
+/// Every action is written to the report with a timestamp, and the report ends with an analysis of the sequence, so
+/// the run can be reviewed afterwards instead of trusted.
+///
+/// Hard limits: at most <see cref="MaxReads"/> hovers, <see cref="TimeoutSeconds"/> seconds, a refusal without
+/// POE2CRAFT_INSPECT=1, an abort when the game loses the foreground, and an abort on Escape.
 /// </summary>
 public static class Inspect
 {
     public const int MaxReads = 40;
-    public const int MaxClicks = 8;
     public const int TimeoutSeconds = 90;
     private const int SettleMs = 140;
+    private const int VK_I = 0x49;
+    private const int VK_ESCAPE = 0x1B;
 
     [DllImport("user32.dll")]
     private static extern bool SetCursorPos(int x, int y);
@@ -37,9 +40,6 @@ public static class Inspect
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll")]
-    private static extern void mouse_event(uint flags, int dx, int dy, uint data, UIntPtr extra);
 
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extra);
@@ -60,41 +60,44 @@ public static class Inspect
         public int Bottom;
     }
 
-    private const uint LeftDown = 0x0002;
-    private const uint LeftUp = 0x0004;
-    private const int VK_I = 0x49;
-    private const int VK_ESCAPE = 0x1B;
+    public sealed record Read(string Text, string Name, int Attempt, string Where);
 
-    public sealed record Read(string Text, string Name, int Attempt);
+    /// <summary>Every action, in order, with the millisecond it happened. This is what makes a run reviewable.</summary>
+    public sealed record Action(int AtMs, string What);
 
     public static IReadOnlyList<Read> LastReads { get; private set; } = Array.Empty<Read>();
+    public static IReadOnlyList<Action> LastActions { get; private set; } = Array.Empty<Action>();
     public static ZoneInfo? LastZone { get; private set; }
 
-    /// <summary>Where the sweep looks for items: equipped slots and the inventory grid, right side then left.</summary>
-    public static IReadOnlyList<(int X, int Y)> ReadPoints(int left, int top, int width, int height)
+    /// <summary>
+    /// Hover points: equipped slots and the inventory grid, right side then left. Same regions the capture probe
+    /// measured on a live 2560x1440 client - hovering is safe, so the sweep may be generous here.
+    /// </summary>
+    public static IReadOnlyList<(int X, int Y, string Where)> HoverPoints(int left, int top, int width, int height)
     {
-        var points = new List<(int, int)>();
+        var points = new List<(int, int, string)>();
         if (width < 320 || height < 240)
         {
             return points;
         }
 
-        double[][] regions =
+        (string Where, double X0, double X1, double Y0, double Y1)[] regions =
         {
-            new[] { 0.70, 0.86, 0.10, 0.26 },
-            new[] { 0.68, 0.86, 0.40, 0.58 },
-            new[] { 0.14, 0.30, 0.10, 0.26 },
-            new[] { 0.14, 0.32, 0.40, 0.58 },
+            ("equipment right", 0.70, 0.86, 0.10, 0.26),
+            ("inventory right", 0.68, 0.86, 0.40, 0.58),
+            ("equipment left", 0.14, 0.30, 0.10, 0.26),
+            ("inventory left", 0.14, 0.32, 0.40, 0.58),
         };
         foreach (var region in regions)
         {
-            double[] xs = { region[0], (region[0] + region[1]) / 2, region[1] };
-            double[] ys = { region[2], (region[2] + region[3]) / 2, region[3] };
+            double[] xs = { region.X0, (region.X0 + region.X1) / 2, region.X1 };
+            double[] ys = { region.Y0, (region.Y0 + region.Y1) / 2, region.Y1 };
             foreach (var fractionY in ys)
             {
                 foreach (var fractionX in xs)
                 {
-                    points.Add((left + (int)Math.Round(width * fractionX), top + (int)Math.Round(height * fractionY)));
+                    points.Add((left + (int)Math.Round(width * fractionX), top + (int)Math.Round(height * fractionY),
+                        region.Where));
                     if (points.Count >= MaxReads)
                     {
                         return points;
@@ -105,49 +108,20 @@ public static class Inspect
         return points;
     }
 
-    /// <summary>
-    /// Is this point on the panel and outside the world? A click in the world can move the character or pull a
-    /// monster; inside the panel it can only select a slot or a tab. The inventory occupies the left or the right
-    /// sixth of the screen, and its grid sits between 20 % and 62 % of the height.
-    /// </summary>
-    public static bool IsPanelPoint(int x, int y, int left, int top, int width, int height)
-    {
-        var fractionX = (x - left) / (double)width;
-        var fractionY = (y - top) / (double)height;
-        var onRight = fractionX >= 0.66 && fractionX <= 0.99;
-        var onLeft = fractionX >= 0.02 && fractionX <= 0.34;
-        return (onRight || onLeft) && fractionY >= 0.08 && fractionY <= 0.64;
-    }
-
-    /// <summary>
-    /// The only clicks the sweep may make: the stash tab strip.
-    ///
-    /// Grid clicks were removed on 2026-10-25 after one nearly dropped an item: a click on a slot picks the item up,
-    /// and the second click that was meant to put it back can land on empty ground and drop it. A tab click cannot
-    /// move an item - it switches which page is shown - so it stays, and nothing else does.
-    /// </summary>
-    public static IReadOnlyList<(int X, int Y, bool IsGrid)> ClickPoints(int left, int top, int width, int height)
-    {
-        var points = new List<(int X, int Y, bool IsGrid)>();
-        if (width < 320 || height < 240)
-        {
-            return points;
-        }
-        // Tab strip of the right-hand panel: the row the tabs live on, measured on a live client. `false` means
-        // "not a grid click" and is asserted in the runner: no grid click may ever exist again.
-        double[] tabXs = { 0.74, 0.80, 0.86 };
-        foreach (var fractionX in tabXs)
-        {
-            points.Add((left + (int)Math.Round(width * fractionX), top + (int)Math.Round(height * 0.115), false));
-        }
-        return points;
-    }
-
     /// <summary>Run one sweep and return the report lines. Never throws.</summary>
-    public static IReadOnlyList<string> Run(bool allowClicks)
+    /// <param name="allowClicks">Accepted and ignored: clicks were removed from the sweep by rule (see the class
+    /// comment), and the parameter stays so an older call site keeps compiling.</param>
+    public static IReadOnlyList<string> Run(bool allowClicks = false)
     {
         var report = new List<string>();
+        var actions = new List<Action>();
         var watch = Stopwatch.StartNew();
+        void Act(string what)
+        {
+            actions.Add(new Action((int)watch.ElapsedMilliseconds, what));
+            Log.Write($"inspect: [{watch.ElapsedMilliseconds,5} ms] {what}");
+        }
+
         if (Environment.GetEnvironmentVariable("POE2CRAFT_INSPECT") != "1")
         {
             report.Add("REFUSED: POE2CRAFT_INSPECT is not 1 - the sweep only runs when asked for by name");
@@ -169,42 +143,46 @@ public static class Inspect
         var height = rect.Bottom - rect.Top;
         report.Add($"game: window {rect.Left},{rect.Top} {width}x{height}");
 
-        // The zone decides whether clicks are allowed at all: in a hideout a stray click cannot start a fight.
+        // The zone is informational now: clicks are gone, but knowing where the character stands explains what a
+        // sweep can see (a hideout with the stash open shows more than a map with nothing open).
         var logPath = ZoneFromLog.Find();
         var zone = logPath is null ? null : ZoneFromLog.Read(logPath);
         LastZone = zone;
-        var inHideout = zone?.IsHideout == true;
-        var clicksAllowed = allowClicks && inHideout;
-        report.Add(zone is null
-            ? "zone: unknown (the log was not found), so clicks stay disabled"
-            : "zone: " + zone.Describe());
-        if (allowClicks && !inHideout)
-        {
-            report.Add("clicks REFUSED: clicks are only allowed inside a hideout");
-        }
+        report.Add(zone is null ? "zone: unknown (log not found)" : "zone: " + zone.Describe());
 
-        GetCursorPos(out var savedCursor);
+        var savedCursor = default(POINT);
+        GetCursorPos(out savedCursor);
         var savedClipboard = ContainsText() ? Clipboard.GetText() : null;
         var reads = new List<Read>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var attempts = 0;
-        var clicks = 0;
+        var emptyHovers = 0;
         var aborted = "";
+        Act($"foreground the game window {rect.Left},{rect.Top} {width}x{height}");
+        Act("clicks: none, by rule - this sweep cannot pick up, move or drop anything");
 
         try
         {
-            SetForegroundWindow(window);
-            Thread.Sleep(250);
-
-            // Read first, press keys only if that found nothing. The inventory key is a TOGGLE: pressing it when
-            // the panel is already open closes it, and the first version of this sweep did exactly that and then
-            // found no items at all in 36 attempts while the items were sitting behind a closed panel.
-            void ReadPass(string stage)
+            // Raise the game and BELIEVE ITS ANSWER. Sending keys while another window holds the focus would type
+            // into that window - the first run aborted on its own foreground check having sent nothing, which is
+            // the right outcome for the wrong reason: it never asked for the focus properly.
+            if (!GameFocus.Bring())
             {
-                foreach (var (x, y) in ReadPoints(rect.Left, rect.Top, width, height))
+                aborted = "the game refused to come to the front, so nothing was sent";
+                Act("abort: the game could not be focused");
+            }
+            else
+            {
+                Thread.Sleep(150);
+            }
+
+            void HoverPass(string stage)
+            {
+                foreach (var (x, y, where) in HoverPoints(rect.Left, rect.Top, width, height))
                 {
                     if (attempts >= MaxReads || watch.Elapsed.TotalSeconds > TimeoutSeconds)
                     {
+                        Act($"stop: {(attempts >= MaxReads ? "read cap" : "time cap")} reached");
                         return;
                     }
                     if (GetForegroundWindow() != window)
@@ -224,58 +202,35 @@ public static class Inspect
                     InputSender.CtrlC();
                     Thread.Sleep(SettleMs);
                     var text = Clipboard.GetText();
-                    if (!ProbeCapture.LooksLikeItem(text) || !seen.Add(text!))
+                    if (!ProbeCapture.LooksLikeItem(text))
                     {
+                        emptyHovers++;
+                        Act($"hover {x},{y} ({where}, {stage}): nothing");
                         continue;
                     }
-                    reads.Add(new Read(text!, ProbeCapture.ItemName(text), attempts));
-                    report.Add($"read: «{reads[^1].Name}» at {x},{y} ({text!.Length} characters, {stage}, attempt {attempts})");
+                    if (!seen.Add(text!))
+                    {
+                        Act($"hover {x},{y} ({where}, {stage}): «{ProbeCapture.ItemName(text)}» already read");
+                        continue;
+                    }
+                    reads.Add(new Read(text!, ProbeCapture.ItemName(text), attempts, where));
+                    Act($"hover {x},{y} ({where}, {stage}): read «{reads[^1].Name}» ({text!.Length} characters)");
                 }
             }
 
-            ReadPass("panels as they were");
-            if (reads.Count == 0 && watch.Elapsed.TotalSeconds < TimeoutSeconds)
+            if (aborted.Length == 0)
             {
-                PressKey(VK_I, 0x17);
-                report.Add("inventory: nothing was readable, so I was pressed once (it opens the panel, or closes it "
-                    + "if it was already open)");
+                HoverPass("panels as they were");
+            }
+            if (aborted.Length == 0 && reads.Count == 0 && watch.Elapsed.TotalSeconds < TimeoutSeconds)
+            {
+                // A key, not a click: `I` toggles the inventory and cannot move an item.
+                keybd_event((byte)VK_I, 0x17, 0, UIntPtr.Zero);
+                Thread.Sleep(30);
+                keybd_event((byte)VK_I, 0x17, 0x0002, UIntPtr.Zero);
+                Act("key I: nothing was readable, pressed once (it opens the inventory, or closes it if it was open)");
                 Thread.Sleep(320);
-                ReadPass("after I");
-            }
-
-            if (clicksAllowed)
-            {
-                foreach (var (x, y, isGrid) in ClickPoints(rect.Left, rect.Top, width, height))
-                {
-                    if (clicks >= MaxClicks || watch.Elapsed.TotalSeconds > TimeoutSeconds)
-                    {
-                        break;
-                    }
-                    if (GetForegroundWindow() != window)
-                    {
-                        aborted = "the game stopped being the foreground window";
-                        break;
-                    }
-                    // Nothing in this loop may ever touch a slot. The check is not decoration: on 2026-10-25 a grid
-                    // click picked an item up and the click meant to put it back nearly dropped it on the ground.
-                    if (isGrid)
-                    {
-                        report.Add($"click REFUSED at {x},{y}: grid clicks are forbidden (an item can be dropped)");
-                        continue;
-                    }
-                    if (!IsPanelPoint(x, y, rect.Left, rect.Top, width, height))
-                    {
-                        report.Add($"click REFUSED at {x},{y}: that point is in the world, not in a panel");
-                        continue;
-                    }
-
-                    SetCursorPos(x, y);
-                    Thread.Sleep(90);
-                    ClickOnce();
-                    clicks++;
-                    Thread.Sleep(240);
-                    report.Add($"click: tab {x},{y} (hideout only; tabs cannot move an item)");
-                }
+                HoverPass("after I");
             }
         }
         catch (Exception error)
@@ -285,6 +240,7 @@ public static class Inspect
         finally
         {
             SetCursorPos(savedCursor.X, savedCursor.Y);
+            Act($"cursor put back to {savedCursor.X},{savedCursor.Y}");
             try
             {
                 if (savedClipboard is null)
@@ -295,40 +251,47 @@ public static class Inspect
                 {
                     Clipboard.SetText(savedClipboard);
                 }
-                report.Add("clipboard and cursor put back");
+                Act("clipboard put back");
             }
             catch (Exception error)
             {
-                report.Add("clipboard could not be put back: " + error.Message);
+                Act("clipboard could not be put back: " + error.Message);
             }
         }
 
         LastReads = reads;
+        LastActions = actions;
         if (aborted.Length > 0)
         {
             report.Add("ABORTED: " + aborted);
         }
-        report.Add($"RESULT: {reads.Count} unique items read in {attempts} attempts, {clicks} clicks, "
-            + $"{watch.ElapsedMilliseconds} ms");
-        report.Add($"limits: {MaxReads} reads / {MaxClicks} clicks / {TimeoutSeconds} s; clicks "
-            + (clicksAllowed ? "enabled (hideout, panel points only)"
-                : inHideout ? "disabled by the caller" : "disabled (not in a hideout)"));
+
+        // The sequence, verbatim: what happened, in order, before any conclusion about it.
+        report.Add("sequence:");
+        foreach (var action in actions)
+        {
+            report.Add($"  [{action.AtMs,5} ms] {action.What}");
+        }
+
+        // And the analysis, kept separate so the raw sequence above can contradict it.
+        var byRegion = reads.GroupBy(read => read.Where).ToDictionary(group => group.Key, group => group.Count());
+        report.Add("analysis:");
+        report.Add($"  hovers: {attempts} in {watch.ElapsedMilliseconds} ms, of which {emptyHovers} found nothing");
+        report.Add($"  items read: {reads.Count}" + (reads.Count > 0
+            ? " (" + string.Join(", ", byRegion.Select(pair => $"{pair.Key}: {pair.Value}")) + ")"
+            : ""));
+        if (reads.Count == 0)
+        {
+            report.Add("  why: no item under any hover point - the panels are most likely closed, or the character "
+                + "carries and stores nothing that the regions cover");
+        }
+        else if (emptyHovers > attempts / 2)
+        {
+            report.Add($"  note: {emptyHovers} of {attempts} hover points were empty, so the regions cover more "
+                + "empty space than items; the points could be tightened around the grid");
+        }
+        report.Add($"limits: {MaxReads} hovers / {TimeoutSeconds} s / no clicks at all");
         return report;
-    }
-
-    private static void ClickOnce()
-    {
-        mouse_event(LeftDown, 0, 0, 0, UIntPtr.Zero);
-        Thread.Sleep(40);
-        mouse_event(LeftUp, 0, 0, 0, UIntPtr.Zero);
-    }
-
-    private static void PressKey(int virtualKey, byte scanCode)
-    {
-        const uint KeyUp = 0x0002;
-        keybd_event((byte)virtualKey, scanCode, 0, UIntPtr.Zero);
-        Thread.Sleep(30);
-        keybd_event((byte)virtualKey, scanCode, KeyUp, UIntPtr.Zero);
     }
 
     private static bool ContainsText()

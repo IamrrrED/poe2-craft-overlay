@@ -35,6 +35,12 @@ internal static class GameFocus
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
+    // A tap of ALT alone has no game effect, and pressing it releases the foreground lock that Windows puts on
+    // SetForegroundWindow when the caller is not already the foreground process - which is exactly the situation
+    // during automation, where the tool that started the sweep is in front.
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extra);
+
     [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr window);
 
@@ -107,6 +113,38 @@ internal static class GameFocus
         return raised;
     }
 
+    /// Force the game to the front even when another window claims the focus.
+    ///
+    /// SetForegroundWindow is refused when the caller does not own the foreground, which is exactly the situation
+    /// during automation: the tool that started the sweep is in front. The documented workaround is to send an ALT
+    /// press first - that releases the foreground lock for the next call - so this does that, then asks again and
+    /// reports the result honestly instead of assuming it worked.
+    public static bool ForceBring()
+    {
+        var window = FindGameWindow();
+        if (window == IntPtr.Zero)
+        {
+            Log.Write("focus: no game window to force");
+            return false;
+        }
+        if (GetForegroundWindow() == window)
+        {
+            return true;
+        }
+
+        // ALT down + up: no game effect (a tap of ALT alone does nothing), and it unlocks the foreground.
+        keybd_event(0x12, 0x38, 0, UIntPtr.Zero);
+        keybd_event(0x12, 0x38, 0x0002, UIntPtr.Zero);
+        Thread.Sleep(40);
+        ShowWindow(window, SW_RESTORE);
+        var raised = SetForegroundWindow(window);
+        Thread.Sleep(120);
+        var front = GetForegroundWindow() == window;
+        Log.Write(raised && front
+            ? "focus: forced the game to the front"
+            : $"focus: could not force the game forward (raised {raised}, foreground matches {front})");
+        return front;
+    }
     /// The game's window handle, found exactly the way the hotkey path finds it: by window class or exact
     /// title on the desktop first, then by the known process names. The probe asks this instead of looking up a
     /// process name of its own - the Steam build is called PathOfExileSteam, and a probe that guessed wrong

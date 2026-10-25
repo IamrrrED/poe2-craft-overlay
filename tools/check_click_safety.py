@@ -1,21 +1,37 @@
-"""Clicks in the sweep must never land on a grid slot.
+"""The sweep must contain no mouse click at all.
 
-On 2026-10-25 a grid click picked an item up and the click that was meant to put it back nearly dropped it on the
-ground. The rule is now: the only click points are stash tabs, and the loop refuses any point marked as a grid slot.
-This check reads the source and fails if a grid point comes back.
+On 2026-10-25 a grid click in the inventory picked an item up and the click meant to put it back nearly dropped it.
+The customer's rule after that is absolute: no click in the inventory, no click in the stash, no click anywhere -
+because only a click can change what the character owns. Reading is hovering plus Ctrl+C; the single key press it
+allows is the inventory toggle, which cannot move an item.
+
+This check reads the source and fails if a click comes back in any form.
 """
 import re
 import sys
 from pathlib import Path
 
-source = (Path(__file__).resolve().parent.parent / "overlay" / "Inspect.cs").read_text(encoding="utf-8")
-grid_points = re.findall(r"points\.Add\(\([^)]*?,\s*true\)\)", source)
+root = Path(__file__).resolve().parent.parent
+inspect = (root / "overlay" / "Inspect.cs").read_text(encoding="utf-8")
 failures = []
-if grid_points:
-    failures.append(f"{len(grid_points)} grid click point(s) in the list: {grid_points[:3]}")
-if "grid clicks are forbidden" not in source:
-    failures.append("the click loop does not refuse grid points")
+
+if "mouse_event" in inspect:
+    failures.append("Inspect.cs declares mouse_event again")
+if re.search(r"\bClickOnce\s*\(", inspect):
+    failures.append("ClickOnce is called or defined")
+if re.search(r"\bClickPoints\s*\(", inspect):
+    failures.append("a click point list exists")
+if "LeftDown" in inspect or "LeftUp" in inspect:
+    failures.append("a mouse button constant is present")
+if "clicks: none" not in inspect:
+    failures.append("the action log does not state that the sweep clicks nothing")
+
+# The probe (probe-capture) may still open the inventory and press Ctrl+C, but it must not click either.
+probe = (root / "overlay" / "ProbeCapture.cs").read_text(encoding="utf-8")
+if "mouse_event" in probe:
+    failures.append("ProbeCapture.cs declares mouse_event")
+
 if failures:
     print("FAIL click safety: " + "; ".join(failures))
     sys.exit(1)
-print("PASS click safety: no grid click points, and the loop refuses one")
+print("PASS click safety: no mouse button anywhere in the sweep or the probe")
