@@ -122,4 +122,29 @@ return function(h)
 	local stateCard = Api.call("craft_step", { item_text = GLOVES, lang = "ru" })
 	H.check("state: the card carries the notes", type(stateCard.stateNotes) == "table" and #stateCard.stateNotes >= 1,
 		tostring(stateCard.stateNotes and #stateCard.stateNotes))
+
+	-- 6. The live capture that exposed this: a Russian client prints "Класс предмета: Обувь" for sandals, and the
+	-- dictionary knew only "Сапоги". Without the class fix no footwear item could ever reach its route.
+	local BOOTS_RU = table.concat({
+		"Класс предмета: Обувь", "Редкость: Редкий", "Победная поступь", "Сандалии хранителя песков", "--------",
+		"Уровень предмета: 84", "--------",
+		'{ Префикс "Горечавковая" (Уровень: 2) — Мана }', "+104(90-104) к максимуму маны",
+	}, "\n")
+	local bootsCard = Api.call("craft_step", { item_text = BOOTS_RU, lang = "ru", goal = "es" })
+	local bootsRoute = nil
+	for _, route in ipairs((bootsCard or { }).routes or { }) do
+		if route.id == "es_res_armour" then
+			bootsRoute = route
+		end
+	end
+	H.check("recipes: a Russian footwear item reaches the armour route", bootsRoute ~= nil,
+		tostring(bootsCard and #(bootsCard.routes or { })))
+	if bootsRoute then
+		H.check("recipes: and the route speaks Russian", (bootsRoute.goal or ""):find("энергощита", 1, true) ~= nil,
+			tostring(bootsRoute.goal))
+	end
+	-- An unknown base must NOT be guessed into a specific slot.
+	H.check("recipes: an unknown base gets no specific class",
+		Recipes.classFromBase("Mysterious Thing") == nil,
+		tostring(Recipes.classFromBase("Mysterious Thing")))
 end

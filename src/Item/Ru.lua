@@ -81,6 +81,10 @@ local CLASSES = {
 	["Пояса"] = "Belts",
 	["Перчатки"] = "Gloves",
 	["Сапоги"] = "Boots",
+	-- The client prints "Обувь" for the whole footwear class (sandals, shoes), while "Сапоги" covers boots only.
+	-- A real capture of «Сандалии хранителя песков» arrived with "Класс предмета: Обувь" and, without this line,
+	-- no footwear route could ever match a Russian item.
+	["Обувь"] = "Boots",
 	["Шлемы"] = "Helmets",
 	["Нагрудники"] = "Body Armours",
 	["Щиты"] = "Shields",
