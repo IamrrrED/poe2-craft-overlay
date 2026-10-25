@@ -96,6 +96,20 @@ public static class StashWalk
         }
         return true;
     }
+    private const int LeftArrowX = 26;
+    private const int RightArrowX = 798;
+
+    /// Click one of the strip arrows, refusing when the game is not the foreground window: a click then lands in
+    /// another application, which is what made earlier runs look like "the arrow does nothing".
+    private static bool ClickArrow(int x, out string reason)
+    {
+        if (!EnsureForeground(out reason))
+        {
+            return false;
+        }
+        StashTabs.ClickAt(x, ArrowY);
+        return true;
+    }
     public static IReadOnlyList<string> Run(string outDir, int maxTabs)
     {
         var report = new List<string>();
@@ -148,74 +162,106 @@ public static class StashWalk
 
         var pages = new List<Page>();
         var previousPanel = Array.Empty<byte>();
-
-        // The strip shows three tabs at a time and its arrow does not scroll in this client (measured), while the list
-        // button opens every tab by name. So the walk goes through the list: open it, read the rows by OCR, click each
-        // row, capture the page, and repeat for the next row - the list closes after every click, hence the reopen.
-        List<(string Text, int X, int Y)> rows = new();
-        var listFrame = Path.Combine(outDir, "walk-list.png");
-        for (var attempt = 0; attempt < 4 && rows.Count == 0; attempt++)
-        {
-            if (!EnsureForeground(out _))
-            {
-                Thread.Sleep(200);
-            }
-            OpenListButton();
-            Thread.Sleep(700);
-            StashOpener.Shot(listFrame);
-            var text = OcrText(listFrame, ListLeft, ListTop, ListWidth, ListHeight);
-            if (!LooksLikeTabList(text))
-            {
-                report.Add($"list: not open yet (attempt {attempt + 1}, read «{text.Trim()}»)");
-                continue;
-            }
-            rows = ReadRows(listFrame, ListLeft, ListTop, ListWidth, ListHeight);
-            report.Add($"list: {rows.Count} rows read by OCR");
-        }
-        if (rows.Count == 0)
-        {
-            report.Add("REFUSED: the tab list could not be opened or read");
-            return report;
-        }
-
+        var visited = new HashSet<string>(StringComparer.Ordinal);
         var index = 0;
-        foreach (var row in rows)
+
+        // The strip walks left and right with two arrows at its ends, measured on the live client:
+        //   left arrow  at 22..30,147  - clicking it shifted the labels from RAZLOM|BEZDNA|GEMS to
+        //                               EXPEDITION|RAZLOM|BEZDNA, then to FRAGMENTS|RUNES|EXPEDITION;
+        //   right arrow at 850,147     - inactive while the strip sits at its right end, which is why every earlier
+        //                               test of "the arrow does not scroll" was wrong: there was nothing to scroll to.
+        // So the walk first goes to the left end, then click every label it can see and step right with the arrow.
+        for (var step = 0; step < 12; step++)
         {
-            if (index >= maxTabs)
+            if (!ClickArrow(LeftArrowX, out var leftReason))
             {
+                report.Add("stop: " + leftReason);
                 break;
             }
-            var name = Clean(row.Text);
-            if (name.Length == 0 || name.StartsWith("1", StringComparison.Ordinal))
+            Thread.Sleep(320);
+        }
+        report.Add("strip: moved to the left end");
+
+        var idlePasses = 0;
+        var scrolls = 0;
+        while (index < maxTabs && scrolls <= 12 && idlePasses < 2)
+        {
+            var stripFrame = Path.Combine(outDir, $"walk-strip-{scrolls}.png");
+            StashOpener.Shot(stripFrame);
+            var labels = ReadRows(stripFrame, StripLeft, StripTop, StripWidth, StripHeight);
+            report.Add($"strip pass {scrolls}: {labels.Count} labels read");
+            var clicked = 0;
+
+            foreach (var label in labels)
             {
-                // Numbers are the numbered tabs; they are read too, but only when the name is not a stray digit run.
-                if (name.Length <= 2)
+                if (index >= maxTabs)
+                {
+                    break;
+                }
+                var name = Clean(label.Text);
+                if (name.Length == 0 || visited.Contains(name))
                 {
                     continue;
                 }
+                visited.Add(name);
+                if (!EnsureForeground(out var focusReason))
+                {
+                    report.Add($"stop: {focusReason} - a click now would land in another window");
+                    return report;
+                }
+                StashTabs.ClickAt(label.X, label.Y);
+                Thread.Sleep(620);
+                index++;
+                clicked++;
+                var path = Path.Combine(outDir, $"tab-{index:d2}-{name}.png");
+                StashOpener.Shot(path);
+                var panel = PanelCrop(path);
+                var diff = previousPanel.Length == 0 ? -1 : MeanDiff(previousPanel, panel);
+                previousPanel = panel;
+                pages.Add(new Page(name, path, diff));
+                report.Add($"tab {index} «{name}» at {label.X},{label.Y}: "
+                    + (diff < 0 ? "first page" : $"panel diff {diff:F1}"));
             }
-            if (!EnsureListOpen(outDir, report))
+
+            idlePasses = clicked == 0 ? idlePasses + 1 : 0;
+
+            // The right arrow sits just past the last visible label, so its position moves with the strip. It is
+            // searched by trying a few offsets and keeping the one that actually changes the labels - the same
+            // "verify, do not assume" rule as everywhere else here.
+            var before = string.Join("|", labels.Select(label => Clean(label.Text)).OrderBy(name => name));
+            var advanced = false;
+            if (labels.Count > 0)
             {
-                report.Add($"stop: the list could not be reopened before «{name}»");
-                break;
+                var rightmost = labels.Max(label => label.X);
+                foreach (var offset in new[] { RightArrowX - rightmost })
+                {
+                    if (!ClickArrow(rightmost + offset, out var rightReason))
+                    {
+                        report.Add("stop: " + rightReason);
+                        break;
+                    }
+                    Thread.Sleep(480);
+                    var checkFrame = Path.Combine(outDir, $"walk-check-{scrolls}.png");
+                    StashOpener.Shot(checkFrame);
+                    var now = ReadRows(checkFrame, StripLeft, StripTop, StripWidth, StripHeight);
+                    var after = string.Join("|", now.Select(label => Clean(label.Text)).OrderBy(name => name));
+                    report.Add($"arrow: tried offset {offset} at {rightmost + offset},{ArrowY}");
+                    if (after.Length > 0 && after != before)
+                    {
+                        advanced = true;
+                        report.Add("arrow: the labels moved, so this offset is the right arrow");
+                        break;
+                    }
+                }
             }
-            if (!EnsureForeground(out var focusReason))
+            scrolls++;
+            if (!advanced)
             {
-                report.Add($"stop: {focusReason} - a click now would land in another window");
-                break;
+                report.Add("strip: no offset advanced the strip - the right end is reached");
+                idlePasses = 2;
             }
-            StashTabs.ClickAt(row.X, row.Y);
-            Thread.Sleep(650);
-            index++;
-            var path = Path.Combine(outDir, $"tab-{index:d2}-{name}.png");
-            StashOpener.Shot(path);
-            var panel = PanelCrop(path);
-            var diff = previousPanel.Length == 0 ? -1 : MeanDiff(previousPanel, panel);
-            previousPanel = panel;
-            pages.Add(new Page(name, path, diff));
-            report.Add($"tab {index} «{name}» at {row.X},{row.Y}: "
-                + (diff < 0 ? "first page" : $"panel diff {diff:F1}"));
         }
+
         LastPages = pages;
         var changed = pages.Count(page => page.PanelDiff > 1.0);
         report.Add($"RESULT: {pages.Count} pages captured, {changed} of them differ from the previous page");

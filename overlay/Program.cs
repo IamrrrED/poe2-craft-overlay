@@ -35,8 +35,6 @@ internal static class Program
         // One calibrated click that opens the stash, proved by a pair of screenshots.
         var openStash = args.Contains("--open-stash");
         var stashTabs = args.Contains("--stash-tabs");
-        // Read what is inside the open stash page by hovering - no clicks at all.
-        var stashRead = args.Contains("--stash-read");
         // Walk every stash tab with the strip arrow and capture each page.
         var stashWalk = args.Contains("--stash-walk");
         // Geometry of the hover points without touching the game: the one part of the probe that can be checked
@@ -83,11 +81,6 @@ internal static class Program
             foreach (var line in walkLines) { Log.Write("walk: " + line); }
             System.IO.File.WriteAllLines(System.IO.Path.Combine(dirWalk, "stash-walk.txt"), walkLines,
                 new System.Text.UTF8Encoding(false));
-            return;
-        }
-        if (stashRead)
-        {
-            RunStashRead().GetAwaiter().GetResult();
             return;
         }
         if (stashTabs)
@@ -412,42 +405,6 @@ internal static class Program
         }
     }
     /// The bounded probe: writes its report next to the exe and to the log, and creates no window of its own.
-    /// Read the open stash page and judge every item it finds. No clicks: hovering plus Ctrl+C only.
-    private static async Task RunStashRead()
-    {
-        var dir = AppContext.BaseDirectory;
-        var lines = StashReader.Run(dir).ToList();
-        foreach (var line in lines)
-        {
-            Log.Write("read: " + line);
-        }
-        var items = StashReader.LastFound;
-        if (items.Count > 0)
-        {
-            using var engine = new EngineClient();
-            foreach (var item in items)
-            {
-                try
-                {
-                    var card = await engine.CallAsync("craft_step", new Dictionary<string, object?>
-                    {
-                        ["item_text"] = item.Text,
-                        ["lang"] = "ru",
-                    });
-                    var json = card?.ToJsonString() ?? "";
-                    var hasRoute = json.Contains("routes", StringComparison.Ordinal);
-                    lines.Add($"judged: «{item.Name}» -> {(hasRoute ? "есть маршрут" : "маршрута нет")} "
-                        + $"({json.Length} characters)");
-                }
-                catch (Exception error)
-                {
-                    lines.Add($"judged: «{item.Name}» -> движок не ответил: {error.Message}");
-                }
-            }
-        }
-        System.IO.File.WriteAllLines(System.IO.Path.Combine(dir, "stash-read.txt"), lines,
-            new System.Text.UTF8Encoding(false));
-    }
     private static async Task RunProbeCapture()
     {
         Log.Write("probe: start");

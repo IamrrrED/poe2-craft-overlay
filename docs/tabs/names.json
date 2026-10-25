@@ -1,0 +1,52 @@
+{
+ "tab-01.png": {
+  "name": "SOSO",
+  "kind": "unknown",
+  "proof": "strip OCR 'soso', match 1.000"
+ },
+ "tab-02.png": {
+  "name": "Сучности",
+  "kind": "augments",
+  "proof": "strip OCR 'Сучности', match 1.000"
+ },
+ "tab-03.png": {
+  "name": "FRAGMENTS",
+  "kind": "fragments",
+  "proof": "strip OCR 'FRAGMENTS', match 1.000"
+ },
+ "tab-04.png": {
+  "name": "MAPS",
+  "kind": "maps",
+  "proof": "strip OCR 'MAPS', match 1.000 - the roman numerals are map tiers"
+ },
+ "tab-05.png": {
+  "name": "RUNES",
+  "kind": "runes",
+  "proof": "strip OCR 'RUNES', match 1.000"
+ },
+ "tab-06.png": {
+  "name": "RAZLOM",
+  "kind": "breach",
+  "proof": "strip OCR 'RAZLOM', match 1.000"
+ },
+ "tab-07.png": {
+  "name": "BEZDNA",
+  "kind": "abyss",
+  "proof": "strip OCR 'BEZDNA', match 1.000"
+ },
+ "tab-08.png": {
+  "name": "EXPEDITION",
+  "kind": "expedition",
+  "proof": "strip OCR 'EXPEDITION', match 1.000"
+ },
+ "tab-09.png": {
+  "name": "RITUAL",
+  "kind": "ritual",
+  "proof": "strip OCR 'RITUAL', match 1.000"
+ },
+ "tab-10.png": {
+  "name": "валюта (ваша вкладка)",
+  "kind": "currency",
+  "proof": "opened by the client owner; currency icons with stack counts; separation +0.072 vs tab-06.png"
+ }
+}

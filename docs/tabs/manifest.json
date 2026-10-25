@@ -1,0 +1,115 @@
+{
+ "templates": [
+  {
+   "index": 1,
+   "template": "tab-01.png",
+   "source": "tab-01-soso"
+  },
+  {
+   "index": 2,
+   "template": "tab-02.png",
+   "source": "tab-02-Сучности"
+  },
+  {
+   "index": 3,
+   "template": "tab-03.png",
+   "source": "tab-04-FRAGMENTS"
+  },
+  {
+   "index": 4,
+   "template": "tab-04.png",
+   "source": "tab-05-fMAPS"
+  },
+  {
+   "index": 5,
+   "template": "tab-05.png",
+   "source": "tab-06-RUNESи"
+  },
+  {
+   "index": 6,
+   "template": "tab-06.png",
+   "source": "tab-09-RAZLOMи"
+  },
+  {
+   "index": 7,
+   "template": "tab-07.png",
+   "source": "tab-11-CBEZDNAи"
+  },
+  {
+   "index": 8,
+   "template": "tab-08.png",
+   "source": "tab-12-EXPEDITION"
+  },
+  {
+   "index": 9,
+   "template": "tab-09.png",
+   "source": "tab-01-RITUAL"
+  }
+ ],
+ "separation": [
+  {
+   "template": "tab-01.png",
+   "source": "tab-01-soso",
+   "own": 1.0,
+   "best_other": 0.041,
+   "margin": 0.959
+  },
+  {
+   "template": "tab-02.png",
+   "source": "tab-02-Сучности",
+   "own": 1.0,
+   "best_other": 0.125,
+   "margin": 0.875
+  },
+  {
+   "template": "tab-03.png",
+   "source": "tab-04-FRAGMENTS",
+   "own": 1.0,
+   "best_other": 0.225,
+   "margin": 0.775
+  },
+  {
+   "template": "tab-04.png",
+   "source": "tab-05-fMAPS",
+   "own": 1.0,
+   "best_other": 0.097,
+   "margin": 0.903
+  },
+  {
+   "template": "tab-05.png",
+   "source": "tab-06-RUNESи",
+   "own": 1.0,
+   "best_other": 0.125,
+   "margin": 0.875
+  },
+  {
+   "template": "tab-06.png",
+   "source": "tab-09-RAZLOMи",
+   "own": 1.0,
+   "best_other": 0.225,
+   "margin": 0.775
+  },
+  {
+   "template": "tab-07.png",
+   "source": "tab-11-CBEZDNAи",
+   "own": 1.0,
+   "best_other": 0.135,
+   "margin": 0.865
+  },
+  {
+   "template": "tab-08.png",
+   "source": "tab-12-EXPEDITION",
+   "own": 1.0,
+   "best_other": 0.097,
+   "margin": 0.903
+  },
+  {
+   "template": "tab-09.png",
+   "source": "tab-01-RITUAL",
+   "own": 1.0,
+   "best_other": 0.135,
+   "margin": 0.865
+  }
+ ],
+ "worst_margin": 0.775
+}
