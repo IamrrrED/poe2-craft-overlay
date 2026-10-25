@@ -107,6 +107,7 @@ Step "game probe: end to end against the live client (skipped when the game is c
     Write-Host ("PASS " + $captured)
     Write-Host ("PASS " + $engine)
 }
+Step "click safety: no click point may be a grid slot" { & python tools\check_click_safety.py; if ($LASTEXITCODE -ne 0) { throw "click safety failed" } }
 Step "market refusal reasons have Russian" {
     & python tools\check_market_reasons.py
 }

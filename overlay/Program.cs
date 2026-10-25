@@ -25,6 +25,10 @@ internal static class Program
         // The bounded game probe. It presses keys into the game, so it is never part of a normal launch: it needs
         // the flag AND POE2CRAFT_PROBE=1, and it refuses to run beside an open panel.
         var probeCapture = args.Contains("--probe-capture");
+        // The value-neutral sweep: read what the player owns, judge it, change nothing.
+        var inspect = args.Contains("--inspect");
+        // Zone from the game log, printed and exit: the half of the sweep that can be checked without acting.
+        var zoneCheck = args.Contains("--zone-check");
         // Geometry of the hover points without touching the game: the one part of the probe that can be checked
         // offline, and the part that decides where the cursor goes.
         var probeCandidates = args.Contains("--probe-candidates");
@@ -60,6 +64,18 @@ internal static class Program
         if (liveCheck)
         {
             RunLiveCheck();
+            return;
+        }
+        if (zoneCheck)
+        {
+            // Just the log: which zone the character is in, and whether a click there would be a hideout click.
+            RunZoneCheck(args);
+            return;
+        }
+        if (inspect)
+        {
+            // The value-neutral sweep: read what the player owns, judge it, change nothing.
+            RunInspect(args.Contains("--allow-clicks")).GetAwaiter().GetResult();
             return;
         }
         if (probeCandidates)
@@ -202,6 +218,92 @@ internal static class Program
         foreach (var line in lines)
         {
             Log.Write("probe candidates: " + line);
+        }
+    }
+    /// Print the zone as the game's own log reports it, for one file or for the live log.
+    private static void RunZoneCheck(string[] args)
+    {
+        var path = args.FirstOrDefault(a => a.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+            ?? ZoneFromLog.Find();
+        var lines = new List<string>();
+        if (path is null)
+        {
+            lines.Add("zone: no log found");
+        }
+        else
+        {
+            var zone = ZoneFromLog.Read(path);
+            lines.Add("log: " + path);
+            lines.Add(zone is null ? "zone: unreadable" : "zone: " + zone.Describe());
+            lines.Add("hideout: " + (zone?.IsHideout == true ? "yes" : "no"));
+        }
+        foreach (var line in lines)
+        {
+            Log.Write("zone check: " + line);
+        }
+        try
+        {
+            System.IO.File.WriteAllLines(
+                System.IO.Path.Combine(AppContext.BaseDirectory, "zone-check.txt"),
+                lines, new System.Text.UTF8Encoding(false));
+        }
+        catch (Exception error)
+        {
+            Log.Write("zone check: " + error.Message);
+        }
+    }
+
+    /// The sweep: read the player's items, ask the engine about each, write a report. No crafting, no moving.
+    private static async Task RunInspect(bool allowClicks)
+    {
+        Log.Write("inspect: start" + (allowClicks ? " (clicks allowed in a hideout)" : ""));
+        var report = Inspect.Run(allowClicks).ToList();
+        foreach (var line in report)
+        {
+            Log.Write("inspect: " + line);
+        }
+
+        var reads = Inspect.LastReads;
+        if (reads.Count > 0)
+        {
+            using var engine = new EngineClient();
+            var judged = 0;
+            foreach (var read in reads)
+            {
+                try
+                {
+                    var card = await engine.CallAsync("craft_step", new Dictionary<string, object?>
+                    {
+                        ["item_text"] = read.Text,
+                        ["lang"] = "ru",
+                    });
+                    var json = card?.ToJsonString() ?? "";
+                    var hasRoutes = json.Contains("routes", StringComparison.Ordinal);
+                    judged++;
+                    report.Add($"judged: «{read.Name}» -> {(hasRoutes ? "есть маршрут" : "маршрута нет")} "
+                        + $"({json.Length} characters)");
+                }
+                catch (Exception error)
+                {
+                    report.Add($"judged: «{read.Name}» -> движок не ответил: {error.Message}");
+                }
+            }
+            report.Add($"judged: {judged} of {reads.Count} items");
+        }
+
+        foreach (var line in report.Skip(Inspect.LastReads.Count))
+        {
+            Log.Write("inspect: " + line);
+        }
+        try
+        {
+            System.IO.File.WriteAllLines(
+                System.IO.Path.Combine(AppContext.BaseDirectory, "inspect-report.txt"),
+                report, new System.Text.UTF8Encoding(false));
+        }
+        catch (Exception error)
+        {
+            Log.Write("inspect: could not write the report: " + error.Message);
         }
     }
     /// The bounded probe: writes its report next to the exe and to the log, and creates no window of its own.
