@@ -24,29 +24,20 @@ internal static class Program
         var liveCheck = args.Contains("--test-live");
         // The bounded game probe. It presses keys into the game, so it is never part of a normal launch: it needs
         // the flag AND POE2CRAFT_PROBE=1, and it refuses to run beside an open panel.
-        var probeCapture = args.Contains("--probe-capture");
         // The value-neutral sweep: read what the player owns, judge it, change nothing.
-        var inspect = args.Contains("--inspect");
         // Zone from the game log, printed and exit: the half of the sweep that can be checked without acting.
         var zoneCheck = args.Contains("--zone-check");
         // Diagnostics for anything that has to LOOK at the game: raise the game, capture, act, capture again.
         var focusTest = args.Contains("--focus-test");
         var panelShots = args.Contains("--panel-shots");
         // One calibrated click that opens the stash, proved by a pair of screenshots.
-        var openStash = args.Contains("--open-stash");
-        var stashTabs = args.Contains("--stash-tabs");
-        // Walk every stash tab with the strip arrow and capture each page.
-        var stashWalk = args.Contains("--stash-walk");
-        // Geometry of the hover points without touching the game: the one part of the probe that can be checked
-        // offline, and the part that decides where the cursor goes.
-        var probeCandidates = args.Contains("--probe-candidates");
         var isFirstInstance = true;
         Mutex? single = null;
-        if (!positionTest && !liveCheck && !probeCapture)
+        if (!positionTest && !liveCheck)
         {
             single = new Mutex(true, "Poe2CraftOverlay.SingleInstance", out isFirstInstance);
         }
-        if (!positionTest && !probeCapture && !isFirstInstance)
+        if (!positionTest && !isFirstInstance)
         {
             if (liveCheck)
             {
@@ -74,43 +65,6 @@ internal static class Program
             RunLiveCheck();
             return;
         }
-        if (stashWalk)
-        {
-            var dirWalk = AppContext.BaseDirectory;
-            var walkLines = StashWalk.Run(dirWalk, 12).ToList();
-            foreach (var line in walkLines) { Log.Write("walk: " + line); }
-            System.IO.File.WriteAllLines(System.IO.Path.Combine(dirWalk, "stash-walk.txt"), walkLines,
-                new System.Text.UTF8Encoding(false));
-            return;
-        }
-        if (stashTabs)
-        {
-            var dirTabs = AppContext.BaseDirectory;
-            // Open the stash first (label scan + one click), then walk the tabs: the whole chain in one run.
-            var openLines = StashOpener.Run(System.IO.Path.Combine(dirTabs, "stash-point.ini"),
-                System.IO.Path.Combine(dirTabs, "stash-before.png"), System.IO.Path.Combine(dirTabs, "stash-after.png"));
-            var tabLines = openLines.Concat(new[] { "--- tabs ---" }).Concat(StashTabs.Run(dirTabs)).ToList();
-            foreach (var line in tabLines)
-            {
-                Log.Write("tabs: " + line);
-            }
-            System.IO.File.WriteAllLines(System.IO.Path.Combine(dirTabs, "tabs-report.txt"), tabLines,
-                new System.Text.UTF8Encoding(false));
-            return;
-        }
-        if (openStash)
-        {
-            var dir = AppContext.BaseDirectory;
-            var lines = StashOpener.Run(System.IO.Path.Combine(dir, "stash-point.ini"),
-                System.IO.Path.Combine(dir, "stash-before.png"), System.IO.Path.Combine(dir, "stash-after.png"));
-            foreach (var line in lines)
-            {
-                Log.Write("stash: " + line);
-            }
-            System.IO.File.WriteAllLines(System.IO.Path.Combine(dir, "stash-report.txt"), lines,
-                new System.Text.UTF8Encoding(false));
-            return;
-        }
         if (panelShots)
         {
             RunPanelShots();
@@ -127,27 +81,6 @@ internal static class Program
         {
             // Just the log: which zone the character is in, and whether a click there would be a hideout click.
             RunZoneCheck(args);
-            return;
-        }
-        if (inspect)
-        {
-            // The value-neutral sweep: read what the player owns, judge it, change nothing.
-            RunInspect(args.Contains("--allow-clicks")).GetAwaiter().GetResult();
-            return;
-        }
-        if (probeCandidates)
-        {
-            // The one part of the probe that can be checked without the game: where the cursor would go.
-            RunProbeCandidates(args);
-            return;
-        }
-        if (probeCapture)
-        {
-            // The bounded game probe: no window of its own, a report next to the exe, and the same
-            // POE2CRAFT_PROBE=1 gate the probe itself checks before touching the game.
-            // Await it: an async void call in Main let the process exit before the engine answered, so the
-            // report was never written and the run looked like a silent failure.
-            RunProbeCapture().GetAwaiter().GetResult();
             return;
         }
         if (!shot)
@@ -252,35 +185,6 @@ internal static class Program
     // executable: it asserts on the live DOM, keeps two pictures as evidence and exits with 0 or 1.
     // It writes live-check.txt next to the exe, because a WinExe has no console to print to.
     /// Print the hover points for a window of this size, without the game and without moving the cursor.
-    private static void RunProbeCandidates(string[] args)
-    {
-        var numbers = args.Where(a => int.TryParse(a, out _)).Select(int.Parse).ToArray();
-        var width = numbers.Length > 0 ? numbers[0] : 1920;
-        var height = numbers.Length > 1 ? numbers[1] : 1080;
-        var lines = new List<string> { $"window: 0,0 {width}x{height}" };
-        foreach (var (x, y) in ProbeCapture.Candidates(0, 0, width, height))
-        {
-            lines.Add($"{x},{y}");
-        }
-        lines.Add($"points: {ProbeCapture.Candidates(0, 0, width, height).Count}");
-        try
-        {
-            System.IO.File.WriteAllLines(System.IO.Path.Combine(AppContext.BaseDirectory, "probe-candidates.txt"),
-                lines, new System.Text.UTF8Encoding(false));
-        }
-        catch (Exception error)
-        {
-            Log.Write("probe candidates: " + error.Message);
-        }
-        foreach (var line in lines)
-        {
-            Log.Write("probe candidates: " + line);
-        }
-    }
-    /// Capture the screen, press the inventory key once, capture again, and put the panel back.
-    ///
-    /// These images are how "is a panel open" gets answered from pixels instead of a guess: the closed frame and the
-    /// open frame are the two things a detector has to tell apart, and both come from the real client.
     private static void RunPanelShots()
     {
         GameFocus.ForceBring();
@@ -352,134 +256,6 @@ internal static class Program
     }
 
     /// The sweep: read the player's items, ask the engine about each, write a report. No crafting, no moving.
-    private static async Task RunInspect(bool allowClicks)
-    {
-        Log.Write("inspect: start" + (allowClicks ? " (clicks allowed in a hideout)" : ""));
-        var report = Inspect.Run(allowClicks).ToList();
-        foreach (var line in report)
-        {
-            Log.Write("inspect: " + line);
-        }
-
-        var reads = Inspect.LastReads;
-        if (reads.Count > 0)
-        {
-            using var engine = new EngineClient();
-            var judged = 0;
-            foreach (var read in reads)
-            {
-                try
-                {
-                    var card = await engine.CallAsync("craft_step", new Dictionary<string, object?>
-                    {
-                        ["item_text"] = read.Text,
-                        ["lang"] = "ru",
-                    });
-                    var json = card?.ToJsonString() ?? "";
-                    var hasRoutes = json.Contains("routes", StringComparison.Ordinal);
-                    judged++;
-                    report.Add($"judged: «{read.Name}» -> {(hasRoutes ? "есть маршрут" : "маршрута нет")} "
-                        + $"({json.Length} characters)");
-                }
-                catch (Exception error)
-                {
-                    report.Add($"judged: «{read.Name}» -> движок не ответил: {error.Message}");
-                }
-            }
-            report.Add($"judged: {judged} of {reads.Count} items");
-        }
-
-        foreach (var line in report.Skip(Inspect.LastReads.Count))
-        {
-            Log.Write("inspect: " + line);
-        }
-        try
-        {
-            System.IO.File.WriteAllLines(
-                System.IO.Path.Combine(AppContext.BaseDirectory, "inspect-report.txt"),
-                report, new System.Text.UTF8Encoding(false));
-        }
-        catch (Exception error)
-        {
-            Log.Write("inspect: could not write the report: " + error.Message);
-        }
-    }
-    /// The bounded probe: writes its report next to the exe and to the log, and creates no window of its own.
-    private static async Task RunProbeCapture()
-    {
-        Log.Write("probe: start");
-        var probeDir = AppContext.BaseDirectory;
-        var report = ProbeCapture.Run().ToList();
-        // The full proof: the item the probe took from the game goes through the engine and must produce a card.
-        var engineLine = "engine: not checked";
-        if (!string.IsNullOrEmpty(ProbeCapture.LastItem))
-        {
-            try
-            {
-                using var engine = new EngineClient();
-                var card = await engine.CallAsync("craft_step", new Dictionary<string, object?>
-                {
-                    ["item_text"] = ProbeCapture.LastItem,
-                    ["lang"] = "ru",
-                });
-                var json = card?.ToJsonString() ?? "";
-                var name = ProbeCapture.ItemName(ProbeCapture.LastItem);
-                // What proves a usable card is its structure, not the name inside it: the name may live in a
-                // nested field or be rendered from the item text, and hunting for it gave a false negative on a
-                // perfectly good card. The keys are printed in the report so the shape is visible.
-                var keys = card is System.Text.Json.Nodes.JsonObject node
-                    ? string.Join(",", node.Select(pair => pair.Key))
-                    : "";
-                var hasCard = json.Length > 500 && keys.Contains("routes", StringComparison.Ordinal);
-                // ToJsonString escapes Cyrillic as \uXXXX, so a literal comparison with the item name fails even
-                // when the card is perfectly right. Both spellings are checked.
-                var escaped = string.Concat(name.Select(c => c < 128
-                    ? c.ToString()
-                    : "\\u" + ((int)c).ToString("x4")));
-                var named = name.Length == 0
-                    || json.Contains(name, StringComparison.Ordinal)
-                    || json.Contains(escaped, StringComparison.OrdinalIgnoreCase);
-                var shape = keys.Length > 0 ? " keys=" + keys : "";
-                engineLine = (hasCard
-                    ? $"engine: card built for «{name}» ({json.Length} characters)"
-                    : $"engine: NO card for «{name}» ({json.Length} characters)")
-                    + shape + (named ? "" : ", name not in payload");
-            }
-            catch (Exception error)
-            {
-                engineLine = "engine: failed - " + error.Message;
-            }
-        }
-        report.Add(engineLine);
-        // The captured item is kept next to the report: without it, "the card does not mention the name" cannot be
-        // diagnosed at all, and the answer was not the card but the escaping of the name inside it.
-        try
-        {
-            if (!string.IsNullOrEmpty(ProbeCapture.LastItem))
-            {
-                System.IO.File.WriteAllText(System.IO.Path.Combine(probeDir, "probe-item.txt"),
-                    ProbeCapture.LastItem, new System.Text.UTF8Encoding(false));
-            }
-        }
-        catch (Exception error)
-        {
-            Log.Write("probe: could not keep the item: " + error.Message);
-        }
-        foreach (var line in report)
-        {
-            Log.Write("probe: " + line);
-        }
-        try
-        {
-            var path = System.IO.Path.Combine(AppContext.BaseDirectory, "probe-report.txt");
-            System.IO.File.WriteAllLines(path, report, new System.Text.UTF8Encoding(false));
-            Log.Write("probe: report written to " + path);
-        }
-        catch (Exception error)
-        {
-            Log.Write("probe: could not write the report: " + error.Message);
-        }
-    }
     private static void RunLiveCheck()
     {
         var form = new PanelForm(false, liveCheck: true);
