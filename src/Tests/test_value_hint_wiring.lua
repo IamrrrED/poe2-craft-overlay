@@ -21,7 +21,7 @@ return function()
 		"Corrupted",
 	}, "\n")
 
-	local answer, errorText = Api.call("craft_step", { item_text = GLOVES, lang = "ru" })
+	local answer, errorText = Api.call("craft_step", { item_text = GLOVES, lang = "ru", goal = "life" })
 	H.check("wiring: craft_step answered", answer ~= nil, tostring(errorText))
 	if not answer then
 		return

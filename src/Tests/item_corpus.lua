@@ -572,4 +572,19 @@ Rune: Body Rune
 --------
 +120 to maximum Life
 ]],
+	-- from test_value_hint_wiring.lua
+	[[
+Item Class: Gloves
+Rarity: Rare
+Doom Grip
+Blacksteel Gauntlets
+Quality: +20% (augmented)
+Evasion Rating: 296 (augmented)
++118 to maximum Life (implicit)
++44% to Fire Resistance
++37% to Cold Resistance
++31% to Lightning Resistance
+--------
+Corrupted
+]],
 }

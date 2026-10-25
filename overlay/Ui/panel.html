@@ -1597,6 +1597,28 @@ window.showCoach=function(report, analysis, client, guide){
   if(step.budgetLine){parts.push('<div class="step-budget">'+esc(step.budgetLine)+'</div>');}
   if(step.stopRule){parts.push('<div class="step-stop">'+esc(step.stopRule)+'</div>');}
   if(step.why){parts.push('<div class="step-why">'+esc(step.why)+'</div>');}
+  // Which modifier is worth chasing, and what raises its chance. The engine ranks it by the player's goal and only
+  // attaches a boost that names that family, so the card can print it as fact. Nothing here is computed in the page:
+  // the chance is the one the engine handed over, and a modifier with no goal boost never appears.
+  const valueHints=report.valueHints||{};
+  const valuable=valueHints.valuable||[];
+  if(valuable.length){
+    const showEn=(LANG==='en');
+    let block='<div class="step-why">';
+    valuable.slice(0,3).forEach(function(mod){
+      const name=mod.bestText||mod.family||'';
+      const chance=(typeof mod.chance==='number')?(' · '+(mod.chance*100).toFixed(mod.chance<0.1?1:0)+'%'):'';
+      block+='<div class="branch ok">'+esc(name)+esc(chance)+'</div>';
+      (mod.boosts||[]).slice(0,1).forEach(function(boost){
+        const effect=showEn?(boost.effectEn||boost.effect):(boost.effect||boost.effectEn);
+        const risk=showEn?(boost.riskEn||boost.risk):(boost.risk||boost.riskEn);
+        block+='<div class="dim">'+esc(showEn?(boost.actionEn||boost.action):(boost.action))+' — '+esc(effect||'')+'</div>';
+        if(risk){block+='<div class="dim">'+esc(risk)+'</div>';}
+      });
+    });
+    block+='</div>';
+    parts.push(block);
+  }
   // The lesson states the principle behind the action, which is what makes the player independent of the
   // tool next time. It is collapsed by default: a beginner who only wants the next click should not have to
   // scroll past a paragraph, and one who wants to learn opens it once.
