@@ -16,6 +16,9 @@ param(
     [string]$Language = "ru"
 )
 
+# The caller reads stdout as UTF-8 (the overlay runs powershell.exe and decodes UTF-8). Without this line the
+# console code page mangles Cyrillic into question marks, and a wrong title reads as "no panel".
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = "Stop"
 
 Add-Type -AssemblyName System.Runtime.WindowsRuntime

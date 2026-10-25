@@ -54,6 +54,19 @@ public static class StashTabs
         return points;
     }
 
+    /// One click at a screen point, preceded by a motion nudge so the game registers the pointer. Used by the walk:
+    /// a tab is not an item, so this cannot pick anything up.
+    public static void ClickAt(int x, int y)
+    {
+        SetCursorPos(x, y);
+        mouse_event(Move, 1, 0, 0, UIntPtr.Zero);
+        Thread.Sleep(25);
+        mouse_event(Move, -1, 0, 0, UIntPtr.Zero);
+        Thread.Sleep(110);
+        mouse_event(LeftDown, 0, 0, 0, UIntPtr.Zero);
+        Thread.Sleep(45);
+        mouse_event(LeftUp, 0, 0, 0, UIntPtr.Zero);
+    }
     public static IReadOnlyList<string> Run(string outDir)
     {
         var report = new List<string>();

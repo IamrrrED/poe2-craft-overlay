@@ -37,6 +37,8 @@ internal static class Program
         var stashTabs = args.Contains("--stash-tabs");
         // Read what is inside the open stash page by hovering - no clicks at all.
         var stashRead = args.Contains("--stash-read");
+        // Walk every stash tab with the strip arrow and capture each page.
+        var stashWalk = args.Contains("--stash-walk");
         // Geometry of the hover points without touching the game: the one part of the probe that can be checked
         // offline, and the part that decides where the cursor goes.
         var probeCandidates = args.Contains("--probe-candidates");
@@ -72,6 +74,15 @@ internal static class Program
         if (liveCheck)
         {
             RunLiveCheck();
+            return;
+        }
+        if (stashWalk)
+        {
+            var dirWalk = AppContext.BaseDirectory;
+            var walkLines = StashWalk.Run(dirWalk, 12).ToList();
+            foreach (var line in walkLines) { Log.Write("walk: " + line); }
+            System.IO.File.WriteAllLines(System.IO.Path.Combine(dirWalk, "stash-walk.txt"), walkLines,
+                new System.Text.UTF8Encoding(false));
             return;
         }
         if (stashRead)

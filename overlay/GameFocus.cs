@@ -145,6 +145,11 @@ internal static class GameFocus
             : $"focus: could not force the game forward (raised {raised}, foreground matches {front})");
         return front;
     }
+    /// True when this window is the one the user's keyboard and mouse go to.
+    public static bool IsForeground(IntPtr window)
+    {
+        return window != IntPtr.Zero && GetForegroundWindow() == window;
+    }
     /// The game's window handle, found exactly the way the hotkey path finds it: by window class or exact
     /// title on the desktop first, then by the known process names. The probe asks this instead of looking up a
     /// process name of its own - the Steam build is called PathOfExileSteam, and a probe that guessed wrong
