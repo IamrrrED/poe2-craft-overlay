@@ -45,9 +45,9 @@ Step "modifier price cache (node self-test, no network)" {
     if ($LASTEXITCODE -ne 0) { throw "mod cache self-test failed" }
 }
 Step "game probe: refuses without permission, points stay inside the inventory" {
-    $exe = Join-Path $PSScriptRoot '..\overlay\bin\Debug\net8.0-windows\Poe2CraftOverlay.exe'
+    $exe = Join-Path $PSScriptRoot '..\overlay\bin\Release\net8.0-windows\Poe2CraftOverlay.exe'
     if (-not (Test-Path $exe)) {
-        $exe = Join-Path $PSScriptRoot '..\overlay\bin\Release\net8.0-windows\Poe2CraftOverlay.exe'
+        $exe = Join-Path $PSScriptRoot '..\overlay\bin\Debug\net8.0-windows\Poe2CraftOverlay.exe'
     }
     if (-not (Test-Path $exe)) { throw "панель не собрана" }
     $report = Join-Path (Split-Path $exe) 'probe-report.txt'
@@ -67,12 +67,45 @@ Step "game probe: refuses without permission, points stay inside the inventory" 
     for ($i = 0; $i -lt 40 -and -not (Test-Path $pointsFile); $i++) { Start-Sleep -Milliseconds 250 }
     $points = Get-Content $pointsFile -Encoding UTF8 | Where-Object { $_ -match '^\d+,\d+$' }
     if (-not $points -or $points.Count -lt 4) { throw "точек наведения нет" }
+    $right = 0
+    $left = 0
     foreach ($point in $points) {
         $parts = $point -split ','
-        $x = [int]$parts[0]; $y = [int]$parts[1]
-        if ($x -gt 640 -or $y -lt 216 -or $y -gt 648) { throw "точка вне области инвентаря: $point" }
+        $x = [int]$parts[0]
+        $y = [int]$parts[1]
+        if ($x -lt 0 -or $x -gt 1920 -or $y -lt 0 -or $y -gt 1080) { throw "точка вне экрана: $point" }
+        # Инвентарь стоит справа или слева, но не в центре: центральные точки бесполезны.
+        if ($x -gt 1152) { $right++ } elseif ($x -lt 768) { $left++ }
     }
-    Write-Host "PASS probe hover points stay inside the inventory ($($points.Count) points)"
+    if (($right + $left) -lt $points.Count) { throw "часть точек наведения попала в центр экрана" }
+    if ($right -eq 0) { throw "ни одной точки в правой четверти, а инвентарь обычно там" }
+    Write-Host "PASS probe hover points avoid the centre of the screen ($($points.Count) points, $right on the right)"
+}
+Step "game probe: end to end against the live client (skipped when the game is closed)" {
+    $game = Get-Process | Where-Object { $_.ProcessName -match 'PathOfExile' } | Select-Object -First 1
+    if (-not $game) {
+        Write-Host "SKIP the game is not running, so there is nothing to probe"
+        return
+    }
+    $exe = Join-Path $PSScriptRoot '..\overlay\bin\Release\net8.0-windows\Poe2CraftOverlay.exe'
+    if (-not (Test-Path $exe)) { $exe = Join-Path $PSScriptRoot '..\overlay\bin\Debug\net8.0-windows\Poe2CraftOverlay.exe' }
+    $report = Join-Path (Split-Path $exe) 'probe-report.txt'
+    Remove-Item $report -ErrorAction SilentlyContinue
+    $env:POE2CRAFT_PROBE = '1'
+    try {
+        Start-Process -FilePath $exe -ArgumentList '--probe-capture' -WindowStyle Hidden | Out-Null
+        for ($i = 0; $i -lt 160 -and -not (Test-Path $report); $i++) { Start-Sleep -Milliseconds 500 }
+    }
+    finally {
+        Remove-Item Env:POE2CRAFT_PROBE -ErrorAction SilentlyContinue
+    }
+    $lines = Get-Content $report -Encoding UTF8 -ErrorAction SilentlyContinue
+    $captured = $lines | Where-Object { $_ -match 'RESULT: captured' }
+    $engine = $lines | Where-Object { $_ -match 'engine: card built' }
+    if (-not $captured) { throw ("зонд не поймал предмет: " + ($lines -join ' / ')) }
+    if (-not $engine) { throw ("предмет поймал, но карточка не собралась: " + ($lines -join ' / ')) }
+    Write-Host ("PASS " + $captured)
+    Write-Host ("PASS " + $engine)
 }
 Step "market refusal reasons have Russian" {
     & python tools\check_market_reasons.py

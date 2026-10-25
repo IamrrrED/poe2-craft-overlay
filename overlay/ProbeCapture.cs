@@ -27,8 +27,12 @@ namespace Poe2CraftOverlay;
 /// </summary>
 public static class ProbeCapture
 {
-    public const int MaxAttempts = 8;
-    public const int TimeoutSeconds = 20;
+    /// The item the last run captured, or null. The caller feeds it to the engine: a capture that never reaches
+    /// the card is only half the proof.
+    public static string? LastItem { get; private set; }
+
+    public const int MaxAttempts = 12;
+    public const int TimeoutSeconds = 25;
     private const int SettleMs = 150;
 
     private const int VK_I = 0x49;
@@ -79,26 +83,42 @@ public static class ProbeCapture
             return points;
         }
 
-        // 7 %..21 % horizontally (inside the inventory panel), 24 %..50 % vertically (inside the grid).
-        double[] xs = { 0.07, 0.14, 0.21 };
-        double[] ys = { 0.24, 0.37, 0.50 };
-        foreach (var fractionY in ys)
+        // Where the panel actually is: measured from a screenshot of a live 2560x1440 session, where the inventory
+        // and the equipped items sit in the right quarter of the screen (the first version of this list assumed
+        // the left third and found nothing at all). Both layouts are covered because the player can move the
+        // panel: right side first, then the mirrored left side.
+        double[][] regions =
         {
-            foreach (var fractionX in xs)
+            // equipped items (weapon, body, rings, boots): reliable targets, an item is always worn
+            new[] { 0.70, 0.86, 0.12, 0.26 },
+            // the inventory grid itself
+            new[] { 0.68, 0.86, 0.40, 0.58 },
+            // the same two regions mirrored, for a left-hand layout
+            new[] { 0.14, 0.30, 0.12, 0.26 },
+            new[] { 0.14, 0.32, 0.40, 0.58 },
+        };
+
+        foreach (var region in regions)
+        {
+            double[] xs = { region[0], (region[0] + region[1]) / 2, region[1] };
+            double[] ys = { region[2], region[3] };
+            foreach (var fractionY in ys)
             {
-                var x = left + (int)Math.Round(width * fractionX);
-                var y = top + (int)Math.Round(height * fractionY);
-                points.Add((x, y));
-                if (points.Count >= MaxAttempts)
+                foreach (var fractionX in xs)
                 {
-                    return points;
+                    var x = left + (int)Math.Round(width * fractionX);
+                    var y = top + (int)Math.Round(height * fractionY);
+                    points.Add((x, y));
+                    if (points.Count >= MaxAttempts)
+                    {
+                        return points;
+                    }
                 }
             }
         }
 
         return points;
     }
-
     /// <summary>Run one probe and return the report lines. Never throws: a probe that crashes is worse than one that says why it could not run.</summary>
     public static IReadOnlyList<string> Run()
     {
@@ -110,14 +130,16 @@ public static class ProbeCapture
             return report;
         }
 
-        var game = FindGame();
-        if (game is null)
+        // The same finder the hotkey uses: window class or exact title on the desktop, then the known process
+        // names. Looking up a process name of its own was wrong - the Steam build is called PathOfExileSteam, and
+        // the first run reported "the game window was not found" while the game sat in front of it.
+        var window = GameFocus.FindGameWindow();
+        if (window == IntPtr.Zero)
         {
             report.Add("REFUSED: the game window was not found, so there is nothing to hover");
             return report;
         }
 
-        var window = game.Value.Window;
         if (!GetWindowRect(window, out var rect))
         {
             report.Add("REFUSED: the game window has no rectangle");
@@ -126,7 +148,7 @@ public static class ProbeCapture
 
         var width = rect.Right - rect.Left;
         var height = rect.Bottom - rect.Top;
-        report.Add($"game: pid {game.Value.ProcessId}, window {rect.Left},{rect.Top} {width}x{height}");
+        report.Add($"game: window {rect.Left},{rect.Top} {width}x{height}");
 
         var points = Candidates(rect.Left, rect.Top, width, height);
         if (points.Count == 0)
@@ -216,23 +238,12 @@ public static class ProbeCapture
         }
         else
         {
+            LastItem = item;
             var name = ItemName(item);
             report.Add($"RESULT: captured «{name}» in {attempts} attempts, {watch.ElapsedMilliseconds} ms");
         }
         report.Add($"probe: {attempts} attempts, {watch.ElapsedMilliseconds} ms, cap {MaxAttempts} attempts / {TimeoutSeconds} s");
         return report;
-    }
-
-    private static (IntPtr Window, int ProcessId)? FindGame()
-    {
-        foreach (var process in Process.GetProcessesByName("Path of Exile 2"))
-        {
-            if (process.MainWindowHandle != IntPtr.Zero)
-            {
-                return (process.MainWindowHandle, process.Id);
-            }
-        }
-        return null;
     }
 
     private static void PressKey(int virtualKey, byte scanCode)

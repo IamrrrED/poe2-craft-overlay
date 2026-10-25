@@ -107,6 +107,15 @@ internal static class GameFocus
         return raised;
     }
 
+    /// The game's window handle, found exactly the way the hotkey path finds it: by window class or exact
+    /// title on the desktop first, then by the known process names. The probe asks this instead of looking up a
+    /// process name of its own - the Steam build is called PathOfExileSteam, and a probe that guessed wrong
+    /// reported "the game window was not found" while the game sat in front of it.
+    public static IntPtr FindGameWindow()
+    {
+        var window = LargestWindow(IsGameWindow, out _);
+        return window == IntPtr.Zero ? FromProcesses() : window;
+    }
     /// The game's window as text, or "" when there is none. Read by the live check: the process list can
     /// be restricted in ways the desktop is not, so "the game is running" is answered by the window.
     public static string DescribeGameWindow()

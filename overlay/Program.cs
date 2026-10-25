@@ -72,7 +72,9 @@ internal static class Program
         {
             // The bounded game probe: no window of its own, a report next to the exe, and the same
             // POE2CRAFT_PROBE=1 gate the probe itself checks before touching the game.
-            RunProbeCapture();
+            // Await it: an async void call in Main let the process exit before the engine answered, so the
+            // report was never written and the run looked like a silent failure.
+            RunProbeCapture().GetAwaiter().GetResult();
             return;
         }
         if (!shot)
@@ -203,10 +205,66 @@ internal static class Program
         }
     }
     /// The bounded probe: writes its report next to the exe and to the log, and creates no window of its own.
-    private static void RunProbeCapture()
+    private static async Task RunProbeCapture()
     {
         Log.Write("probe: start");
-        var report = ProbeCapture.Run();
+        var probeDir = AppContext.BaseDirectory;
+        var report = ProbeCapture.Run().ToList();
+        // The full proof: the item the probe took from the game goes through the engine and must produce a card.
+        var engineLine = "engine: not checked";
+        if (!string.IsNullOrEmpty(ProbeCapture.LastItem))
+        {
+            try
+            {
+                using var engine = new EngineClient();
+                var card = await engine.CallAsync("craft_step", new Dictionary<string, object?>
+                {
+                    ["item_text"] = ProbeCapture.LastItem,
+                    ["lang"] = "ru",
+                });
+                var json = card?.ToJsonString() ?? "";
+                var name = ProbeCapture.ItemName(ProbeCapture.LastItem);
+                // What proves a usable card is its structure, not the name inside it: the name may live in a
+                // nested field or be rendered from the item text, and hunting for it gave a false negative on a
+                // perfectly good card. The keys are printed in the report so the shape is visible.
+                var keys = card is System.Text.Json.Nodes.JsonObject node
+                    ? string.Join(",", node.Select(pair => pair.Key))
+                    : "";
+                var hasCard = json.Length > 500 && keys.Contains("routes", StringComparison.Ordinal);
+                // ToJsonString escapes Cyrillic as \uXXXX, so a literal comparison with the item name fails even
+                // when the card is perfectly right. Both spellings are checked.
+                var escaped = string.Concat(name.Select(c => c < 128
+                    ? c.ToString()
+                    : "\\u" + ((int)c).ToString("x4")));
+                var named = name.Length == 0
+                    || json.Contains(name, StringComparison.Ordinal)
+                    || json.Contains(escaped, StringComparison.OrdinalIgnoreCase);
+                var shape = keys.Length > 0 ? " keys=" + keys : "";
+                engineLine = (hasCard
+                    ? $"engine: card built for «{name}» ({json.Length} characters)"
+                    : $"engine: NO card for «{name}» ({json.Length} characters)")
+                    + shape + (named ? "" : ", name not in payload");
+            }
+            catch (Exception error)
+            {
+                engineLine = "engine: failed - " + error.Message;
+            }
+        }
+        report.Add(engineLine);
+        // The captured item is kept next to the report: without it, "the card does not mention the name" cannot be
+        // diagnosed at all, and the answer was not the card but the escaping of the name inside it.
+        try
+        {
+            if (!string.IsNullOrEmpty(ProbeCapture.LastItem))
+            {
+                System.IO.File.WriteAllText(System.IO.Path.Combine(probeDir, "probe-item.txt"),
+                    ProbeCapture.LastItem, new System.Text.UTF8Encoding(false));
+            }
+        }
+        catch (Exception error)
+        {
+            Log.Write("probe: could not keep the item: " + error.Message);
+        }
         foreach (var line in report)
         {
             Log.Write("probe: " + line);
